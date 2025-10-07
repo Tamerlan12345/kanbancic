@@ -1,1 +1,23 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quantum PM Platform</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <h1>Quantum PM Platform</h1>
+    <div id="app"></div>
 
+    <!-- Загрузка библиотек -->
+    <script src="https://cdn.jsdelivr.net/npm/vue@3"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Загрузка скриптов приложения в правильном порядке -->
+    <script src="js/services/supabaseService.js"></script>
+    <script src="js/composables/useKanban.js"></script>
+    <script src="js/composables/useAI.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
