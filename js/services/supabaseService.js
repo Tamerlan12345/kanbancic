@@ -1,8 +1,12 @@
 // --- Supabase Client Setup ---
-const SUPABASE_URL = 'https://gqdwplbvxopanapxzlaw.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdxZHdwbGJ2eG9wYW5hcHh6bGF3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk4MTk0MzYsImV4cCI6MjA3NTM5NTQzNn0.nk5jkXjN3gB1baycirRTU2nZelMklNf8CAWPkLamMLc';
+// Используем глобальный объект конфигурации, который загружается из js/config.js
+const { SUPABASE_URL, SUPABASE_ANON_KEY } = window.APP_CONFIG;
 
-// Создаем и экспортируем клиент Supabase
+// Проверяем, что конфигурация загружена
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    throw new Error("Supabase URL или Anon Key не найдены. Убедитесь, что файл js/config.js существует и загружен правильно.");
+}
+
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // --- Data Fetching Functions ---
@@ -27,7 +31,31 @@ async function getTasks(projectId) {
     return data;
 }
 
+/**
+ * Обновляет статус задачи.
+ * @param {string} taskId - ID задачи для обновления.
+ * @param {string} newStatus - Новый статус задачи.
+ * @returns {Promise<Object|null>} - Обновленные данные или null в случае ошибки.
+ */
+async function updateTaskStatus(taskId, newStatus) {
+    const { data, error } = await supabaseClient
+        .from('tasks')
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .eq('id', taskId)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Ошибка при обновлении статуса задачи:', error);
+        return null;
+    }
+
+    return data;
+}
+
+
 // Экспортируем функции для использования в других частях приложения
 window.supabaseService = {
     getTasks,
+    updateTaskStatus,
 };

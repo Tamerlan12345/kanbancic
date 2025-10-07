@@ -91,3 +91,15 @@ h1 {
     padding-left: 15px;
     border-left: 2px solid #dfe1e6;
 }
+
+/* --- Стили для Drag-and-Drop --- */
+.sortable-ghost {
+    opacity: 0.4;
+    background: #cce5ff; /* Светло-голубой фон для плейсхолдера */
+}
+
+.sortable-drag {
+    box-shadow: 0 4px 12px rgba(9,30,66,.25);
+    transform: rotate(3deg); /* Легкий наклон для перетаскиваемого элемента */
+    cursor: grabbing;
+}
