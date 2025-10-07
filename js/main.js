@@ -1,5 +1,4 @@
 const { createApp, defineComponent, nextTick } = Vue;
-const { useKanban } = window;
 
 // --- Компонент для отображения Задачи ---
 const TaskCard = defineComponent({
