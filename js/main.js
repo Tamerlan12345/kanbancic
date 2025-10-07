@@ -1,4 +1,4 @@
-const { createApp, defineComponent, onMounted, nextTick } = Vue;
+const { createApp, defineComponent, nextTick } = Vue;
 const { useKanban } = window;
 
 // --- Компонент для отображения Задачи ---
