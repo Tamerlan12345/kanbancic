@@ -55,11 +55,66 @@ function useKanban(projectId) {
         });
     }
 
+    /**
+     * Обрабатывает перемещение задачи, обновляя ее статус.
+     * @param {string} taskId - ID задачи, которую переместили.
+     * @param {string} newStatus - Новый статус (ID колонки, куда переместили).
+     */
+    async function handleTaskDrop(taskId, newStatus) {
+        // Оптимистичное обновление UI: немедленно перемещаем задачу
+        let taskToMove;
+        let sourceColumn;
+
+        // Находим и удаляем задачу из исходной колонки
+        for (const col of columns.value) {
+            const taskIndex = col.tasks.findIndex(t => t.id === taskId);
+            if (taskIndex !== -1) {
+                sourceColumn = col;
+                taskToMove = col.tasks.splice(taskIndex, 1)[0];
+                break;
+            }
+        }
+
+        // Добавляем задачу в новую колонку
+        if (taskToMove) {
+            const destinationColumn = columns.value.find(c => c.id === newStatus);
+            if (destinationColumn) {
+                taskToMove.status = newStatus; // Обновляем статус в объекте
+                destinationColumn.tasks.push(taskToMove);
+            }
+        } else {
+            console.error("Не удалось найти перемещаемую задачу в UI.");
+            return; // Выходим, если задача не найдена
+        }
+
+        // Асинхронно обновляем данные в базе данных
+        const updatedTask = await window.supabaseService.updateTaskStatus(taskId, newStatus);
+
+        // Если обновление в БД не удалось, откатываем изменения в UI
+        if (!updatedTask) {
+            console.error(`Не удалось сохранить новый статус для задачи ${taskId}. Откат UI.`);
+            // Удаляем задачу из новой колонки
+            const destinationColumn = columns.value.find(c => c.id === newStatus);
+            if (destinationColumn) {
+                const taskIndex = destinationColumn.tasks.findIndex(t => t.id === taskId);
+                if (taskIndex !== -1) {
+                    destinationColumn.tasks.splice(taskIndex, 1);
+                }
+            }
+            // Возвращаем задачу в исходную колонку
+            if (sourceColumn) {
+                taskToMove.status = sourceColumn.id; // Возвращаем старый статус
+                sourceColumn.tasks.push(taskToMove);
+            }
+        }
+    }
+
     onMounted(fetchAndDistributeTasks);
 
     return {
         columns,
         fetchTasks: fetchAndDistributeTasks,
+        handleTaskDrop,
     };
 }
 
