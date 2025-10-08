@@ -1,7 +1,5 @@
 import { APP_CONFIG } from '../config.js';
-// The default CDN import for Supabase v2 doesn't expose a named 'createClient' export.
-// We need to import the default export from the module distribution file.
-import * as supabase from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/module/index.js';
 
 const { SUPABASE_URL, SUPABASE_ANON_KEY } = APP_CONFIG;
 

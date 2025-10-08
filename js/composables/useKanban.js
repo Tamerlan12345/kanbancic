@@ -1,7 +1,5 @@
-import * as Vue from 'https://cdn.jsdelivr.net/npm/vue@3';
+import { ref, onMounted } from 'https://cdn.jsdelivr.net/npm/vue@3/dist/vue.esm-browser.js';
 import { getTasks, updateTaskStatus } from '../services/supabaseService.js';
-
-const { ref, onMounted } = Vue;
 
 /**
  * Преобразует плоский список задач в иерархическую структуру (дерево).
