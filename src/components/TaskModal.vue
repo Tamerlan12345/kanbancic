@@ -8,7 +8,7 @@
       <form @submit.prevent="handleSubmit">
         <div class="form-group">
           <label for="task-name">Название задачи</label>
-          <input id="task-name" v-model="task.name" type="text" required placeholder="Например, 'Исправить ошибку аутентификации'">
+        <input id="task-name" v-model="task.title" type="text" required>
         </div>
         <div class="form-group">
           <label for="task-description">Описание</label>
@@ -57,7 +57,7 @@ import { ref } from 'vue';
 const emit = defineEmits(['close', 'save']);
 
 const task = ref({
-  name: '',
+  title: '',
   description: '',
   status: 'Backlog',
   priority: 'Medium',
