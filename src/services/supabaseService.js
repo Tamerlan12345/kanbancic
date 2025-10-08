@@ -42,6 +42,121 @@ export async function getTasks(projectId) {
 }
 
 /**
+ * Updates a task with new data.
+ * @param {string} taskId - The ID of the task to update.
+ * @param {Object} updates - An object containing the fields to update.
+ * @returns {Promise<Object|null>} The updated task object or null on error.
+ */
+export async function getTaskById(taskId) {
+    if (!supabase) return null;
+
+    const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('id', taskId)
+        .single();
+
+    if (error) {
+        console.error(`Error fetching task ${taskId}:`, error);
+        return null;
+    }
+
+    return data;
+}
+
+export async function updateTask(taskId, updates) {
+    if (!supabase) return null;
+
+    const { data, error } = await supabase
+        .from('tasks')
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq('id', taskId)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error updating task:', error);
+        return null;
+    }
+
+    return data;
+}
+
+// --- Checklist Functions ---
+
+/**
+ * Fetches all checklist items for a specific task.
+ * @param {string} taskId - The ID of the task.
+ * @returns {Promise<Array>} - An array of checklist item objects.
+ */
+export async function getChecklistForTask(taskId) {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('task_checklists')
+    .select('*')
+    .eq('task_id', taskId)
+    .order('created_at');
+  if (error) console.error('Error fetching checklist:', error);
+  return data || [];
+}
+
+/**
+ * Adds a new item to a task's checklist.
+ * @param {string} taskId - The ID of the task.
+ * @param {string} title - The content of the checklist item.
+ * @returns {Promise<Object|null>} - The newly created checklist item.
+ */
+export async function addChecklistItem(taskId, title) {
+  if (!supabase) return null;
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from('task_checklists')
+    .insert({ task_id: taskId, title: title, created_by_user_id: user.id })
+    .select()
+    .single();
+  if (error) console.error('Error adding checklist item:', error);
+  return data;
+}
+
+/**
+ * Updates an existing checklist item.
+ * @param {number} itemId - The ID of the checklist item.
+ * @param {Object} updates - An object with the fields to update (e.g., { title, is_completed }).
+ * @returns {Promise<Object|null>} - The updated checklist item.
+ */
+export async function updateChecklistItem(itemId, updates) {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from('task_checklists')
+    .update(updates)
+    .eq('id', itemId)
+    .select()
+    .single();
+  if (error) console.error('Error updating checklist item:', error);
+  return data;
+}
+
+/**
+ * Deletes a checklist item.
+ * @param {number} itemId - The ID of the checklist item to delete.
+ * @returns {Promise<boolean>} - True if deletion was successful.
+ */
+export async function deleteChecklistItem(itemId) {
+  if (!supabase) return false;
+  const { error } = await supabase
+    .from('task_checklists')
+    .delete()
+    .eq('id', itemId);
+  if (error) {
+    console.error('Error deleting checklist item:', error);
+    return false;
+  }
+  return true;
+}
+
+/**
  * Creates a new task in the database.
  * @param {Object} taskData - The data for the new task (name, description, status, etc.).
  * @param {string} projectId - The ID of the project this task belongs to.
