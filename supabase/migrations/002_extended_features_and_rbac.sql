@@ -115,7 +115,7 @@ FOR SELECT USING (
 -- Only admins/owners can add, update, or remove project members.
 DROP POLICY IF EXISTS "Allow management by project admins" ON project_members;
 CREATE POLICY "Allow management by project admins" ON project_members
-FOR ALL USING (
+FOR INSERT, UPDATE, DELETE USING (
     get_my_project_role(project_id) IN ('Owner', 'Admin')
 );
 
