@@ -63,8 +63,12 @@ export async function createTask(taskData, projectId) {
         return null;
     }
 
+    // Destructure to handle the column name mismatch between frontend and DB
+    const { issue_type, ...restOfTaskData } = taskData;
+
     const taskToInsert = {
-        ...taskData,
+        ...restOfTaskData,
+        issue_type_id: issue_type, // Map to the correct DB column
         project_id: projectId,
         reporter_id: user.id,
     };
