@@ -29,7 +29,11 @@ export async function getTasks(projectId) {
 
     const { data, error } = await supabase
         .from('tasks')
-        .select('*')
+        .select(`
+            *,
+            assignee:profiles (avatar_url),
+            issue_type:issue_types (name, color)
+        `)
         .eq('project_id', projectId)
         .order('created_at', { ascending: true });
 
@@ -42,10 +46,9 @@ export async function getTasks(projectId) {
 }
 
 /**
- * Updates a task with new data.
- * @param {string} taskId - The ID of the task to update.
- * @param {Object} updates - An object containing the fields to update.
- * @returns {Promise<Object|null>} The updated task object or null on error.
+ * Fetches a single task by its ID.
+ * @param {string} taskId - The ID of the task to fetch.
+ * @returns {Promise<Object|null>} The task object or null on error.
  */
 export async function getTaskById(taskId) {
     if (!supabase) return null;
@@ -64,6 +67,12 @@ export async function getTaskById(taskId) {
     return data;
 }
 
+/**
+ * Updates a task with new data.
+ * @param {string} taskId - The ID of the task to update.
+ * @param {Object} updates - An object containing the fields to update.
+ * @returns {Promise<Object|null>} The updated task object or null on error.
+ */
 export async function updateTask(taskId, updates) {
     if (!supabase) return null;
 
@@ -156,6 +165,67 @@ export async function deleteChecklistItem(itemId) {
   return true;
 }
 
+// --- AI Assistant Functions ---
+
+/**
+ * Invokes the 'gemini-proxy' Edge Function to get a response from the AI.
+ * @param {string} prompt - The user's prompt to send to the AI.
+ * @returns {Promise<string|null>} - The AI's response text or null on error.
+ */
+export async function invokeGeminiProxy(prompt) {
+  if (!supabase) return null;
+  const { data, error } = await supabase.functions.invoke('gemini-proxy', {
+    body: { prompt },
+  });
+  if (error) {
+    console.error('Error invoking Gemini proxy:', error);
+    return null;
+  }
+  return data?.response;
+}
+
+/**
+ * Fetches the AI conversation history for a specific task.
+ * @param {string} taskId - The ID of the task.
+ * @returns {Promise<Array>} - An array of conversation objects.
+ */
+export async function getAiConversationHistory(taskId) {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('task_ai_conversations')
+    .select('*')
+    .eq('task_id', taskId)
+    .order('created_at');
+  if (error) console.error('Error fetching AI conversation history:', error);
+  return data || [];
+}
+
+/**
+ * Saves a new entry to the AI conversation history.
+ * @param {string} taskId - The ID of the task.
+ * @param {string} prompt - The user's prompt.
+ * @param {string} response - The AI's response.
+ * @returns {Promise<Object|null>} - The saved conversation object.
+ */
+export async function saveAiConversation(taskId, prompt, response) {
+  if (!supabase) return null;
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from('task_ai_conversations')
+    .insert({
+      task_id: taskId,
+      user_id: user.id,
+      prompt,
+      response,
+    })
+    .select()
+    .single();
+  if (error) console.error('Error saving AI conversation:', error);
+  return data;
+}
+
 /**
  * Creates a new task in the database.
  * @param {Object} taskData - The data for the new task (name, description, status, etc.).
@@ -225,6 +295,25 @@ export async function getProjectsForUser() {
   }
 
   return data;
+}
+
+/**
+ * Fetches project details for a given project ID.
+ * @param {string} projectId - The ID of the project to fetch details for.
+ * @returns {Promise<Object|null>} - The project details or null on error.
+ */
+export async function getProjectDetails(projectId) {
+    if (!supabase) return null;
+    const { data, error } = await supabase
+        .from('projects')
+        .select('name')
+        .eq('id', projectId)
+        .single();
+    if (error) {
+        console.error('Error fetching project details:', error);
+        return null;
+    }
+    return data;
 }
 
 /**
