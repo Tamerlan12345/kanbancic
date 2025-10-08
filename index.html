@@ -3,33 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com;">
     <title>Quantum PM Platform</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
     <h1>Quantum PM Platform</h1>
     <div id="app" v-cloak>
-        <div v-if="showError" class="error-container">
-            <h1>Ошибка: ID проекта не найден</h1>
-            <p>Пожалуйста, укажите <code>?projectId=...</code> в URL-адресе.</p>
-        </div>
-        <div v-else class="kanban-board">
-            <div v-for="column in columns" :key="column.id" class="kanban-column">
-                <h2 class="column-title">{{ column.title }} ({{ column.tasks.length }})</h2>
-                <div class="column-tasks" :data-column-id="column.id">
-                    <TaskCard v-for="task in column.tasks" :key="task.id" :task="task" />
-                </div>
-            </div>
-        </div>
+        <!-- The Vue application will render the kanban board here -->
     </div>
 
-    <!-- Globally loaded libraries -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
-
-    <!-- Main application entry point (as ES Module) -->
-    <!-- Vue is imported from within this module -->
-    <script type="module" src="js/main.js"></script>
+    <!-- Main application entry point -->
+    <script type="module" src="/src/main.js"></script>
 </body>
 </html>
