@@ -25,11 +25,18 @@ async function sendLogToServer(level, message, metadata = {}) {
   }
 
   try {
+    const browserMetadata = {};
+    // Check if running in a browser environment before accessing window/navigator
+    if (typeof window !== 'undefined' && typeof navigator !== 'undefined') {
+      browserMetadata.currentUrl = window.location.href;
+      browserMetadata.userAgent = navigator.userAgent;
+    }
+
     const { error } = await supabase.from('logs').insert([
       {
         level,
         message,
-        metadata: { ...metadata, userAgent: navigator.userAgent, currentUrl: window.location.href },
+        metadata: { ...metadata, ...browserMetadata },
       },
     ]);
 
