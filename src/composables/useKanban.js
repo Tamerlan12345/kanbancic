@@ -35,7 +35,15 @@ export function useKanban(projectId) {
      * Fetches tasks from the service and distributes them into the correct columns.
      */
     async function fetchAndDistributeTasks() {
+        if (!projectId) {
+            return; // Do not fetch if there is no project ID.
+        }
         const fetchedTasks = await getTasks(projectId);
+
+        if (fetchedTasks.length === 0) {
+            console.log("DIAGNOSTIC: getTasks() returned an empty array. This might be because the project has no tasks or because of restrictive Row-Level Security (RLS) policies on the 'tasks' table in Supabase.");
+        }
+
         const hierarchicalTasks = buildTaskHierarchy(fetchedTasks);
 
         // Reset all columns
