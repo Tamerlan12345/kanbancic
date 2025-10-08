@@ -15,13 +15,8 @@
         </div>
       </nav>
     </header>
-    <Breadcrumbs />
     <main class="app-main">
-      <router-view v-slot="{ Component }">
-        <transition name="fade" mode="out-in">
-          <component :is="Component" />
-        </transition>
-      </router-view>
+      <router-view />
     </main>
   </div>
 </template>
@@ -29,7 +24,6 @@
 <script setup>
 import { useRouter } from 'vue-router';
 import { useAuth } from './composables/useAuth';
-import Breadcrumbs from './components/Breadcrumbs.vue';
 
 const { user, signOut } = useAuth();
 const router = useRouter();
@@ -37,6 +31,9 @@ const router = useRouter();
 const handleLogout = async () => {
   try {
     await signOut();
+    // After sign-out, the onAuthStateChange listener in useAuth will trigger,
+    // and the router guard (to be implemented) will redirect to /login.
+    // For a more immediate effect, we can manually push.
     router.push('/login');
   } catch (error) {
     console.error('Error logging out:', error);
@@ -113,17 +110,6 @@ body {
 /* Main Content Area */
 .app-main {
   flex-grow: 1;
-  /* Let individual views handle their own padding */
-}
-
-/* Transition Styles */
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.2s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
+  padding: 20px;
 }
 </style>

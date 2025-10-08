@@ -31,7 +31,7 @@ export async function getTasks(projectId) {
         .from('tasks')
         .select(`
             *,
-            assignee:profiles (avatar_url),
+            assignee:profiles!assignee_id (avatar_url),
             issue_type:issue_types (name, color)
         `)
         .eq('project_id', projectId)
@@ -43,187 +43,6 @@ export async function getTasks(projectId) {
     }
 
     return data;
-}
-
-/**
- * Fetches a single task by its ID.
- * @param {string} taskId - The ID of the task to fetch.
- * @returns {Promise<Object|null>} The task object or null on error.
- */
-export async function getTaskById(taskId) {
-    if (!supabase) return null;
-
-    const { data, error } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('id', taskId)
-        .single();
-
-    if (error) {
-        console.error(`Error fetching task ${taskId}:`, error);
-        return null;
-    }
-
-    return data;
-}
-
-/**
- * Updates a task with new data.
- * @param {string} taskId - The ID of the task to update.
- * @param {Object} updates - An object containing the fields to update.
- * @returns {Promise<Object|null>} The updated task object or null on error.
- */
-export async function updateTask(taskId, updates) {
-    if (!supabase) return null;
-
-    const { data, error } = await supabase
-        .from('tasks')
-        .update({ ...updates, updated_at: new Date().toISOString() })
-        .eq('id', taskId)
-        .select()
-        .single();
-
-    if (error) {
-        console.error('Error updating task:', error);
-        return null;
-    }
-
-    return data;
-}
-
-// --- Checklist Functions ---
-
-/**
- * Fetches all checklist items for a specific task.
- * @param {string} taskId - The ID of the task.
- * @returns {Promise<Array>} - An array of checklist item objects.
- */
-export async function getChecklistForTask(taskId) {
-  if (!supabase) return [];
-  const { data, error } = await supabase
-    .from('task_checklists')
-    .select('*')
-    .eq('task_id', taskId)
-    .order('created_at');
-  if (error) console.error('Error fetching checklist:', error);
-  return data || [];
-}
-
-/**
- * Adds a new item to a task's checklist.
- * @param {string} taskId - The ID of the task.
- * @param {string} title - The content of the checklist item.
- * @returns {Promise<Object|null>} - The newly created checklist item.
- */
-export async function addChecklistItem(taskId, title) {
-  if (!supabase) return null;
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-
-  const { data, error } = await supabase
-    .from('task_checklists')
-    .insert({ task_id: taskId, title: title, created_by_user_id: user.id })
-    .select()
-    .single();
-  if (error) console.error('Error adding checklist item:', error);
-  return data;
-}
-
-/**
- * Updates an existing checklist item.
- * @param {number} itemId - The ID of the checklist item.
- * @param {Object} updates - An object with the fields to update (e.g., { title, is_completed }).
- * @returns {Promise<Object|null>} - The updated checklist item.
- */
-export async function updateChecklistItem(itemId, updates) {
-  if (!supabase) return null;
-  const { data, error } = await supabase
-    .from('task_checklists')
-    .update(updates)
-    .eq('id', itemId)
-    .select()
-    .single();
-  if (error) console.error('Error updating checklist item:', error);
-  return data;
-}
-
-/**
- * Deletes a checklist item.
- * @param {number} itemId - The ID of the checklist item to delete.
- * @returns {Promise<boolean>} - True if deletion was successful.
- */
-export async function deleteChecklistItem(itemId) {
-  if (!supabase) return false;
-  const { error } = await supabase
-    .from('task_checklists')
-    .delete()
-    .eq('id', itemId);
-  if (error) {
-    console.error('Error deleting checklist item:', error);
-    return false;
-  }
-  return true;
-}
-
-// --- AI Assistant Functions ---
-
-/**
- * Invokes the 'gemini-proxy' Edge Function to get a response from the AI.
- * @param {string} prompt - The user's prompt to send to the AI.
- * @returns {Promise<string|null>} - The AI's response text or null on error.
- */
-export async function invokeGeminiProxy(prompt) {
-  if (!supabase) return null;
-  const { data, error } = await supabase.functions.invoke('gemini-proxy', {
-    body: { prompt },
-  });
-  if (error) {
-    console.error('Error invoking Gemini proxy:', error);
-    return null;
-  }
-  return data?.response;
-}
-
-/**
- * Fetches the AI conversation history for a specific task.
- * @param {string} taskId - The ID of the task.
- * @returns {Promise<Array>} - An array of conversation objects.
- */
-export async function getAiConversationHistory(taskId) {
-  if (!supabase) return [];
-  const { data, error } = await supabase
-    .from('task_ai_conversations')
-    .select('*')
-    .eq('task_id', taskId)
-    .order('created_at');
-  if (error) console.error('Error fetching AI conversation history:', error);
-  return data || [];
-}
-
-/**
- * Saves a new entry to the AI conversation history.
- * @param {string} taskId - The ID of the task.
- * @param {string} prompt - The user's prompt.
- * @param {string} response - The AI's response.
- * @returns {Promise<Object|null>} - The saved conversation object.
- */
-export async function saveAiConversation(taskId, prompt, response) {
-  if (!supabase) return null;
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-
-  const { data, error } = await supabase
-    .from('task_ai_conversations')
-    .insert({
-      task_id: taskId,
-      user_id: user.id,
-      prompt,
-      response,
-    })
-    .select()
-    .single();
-  if (error) console.error('Error saving AI conversation:', error);
-  return data;
 }
 
 /**
@@ -247,7 +66,7 @@ export async function createTask(taskData, projectId) {
     const taskToInsert = {
         ...taskData,
         project_id: projectId,
-        author_id: user.id,
+        reporter_id: user.id,
     };
 
     const { data, error } = await supabase
@@ -266,8 +85,6 @@ export async function createTask(taskData, projectId) {
 
 /**
  * Fetches all projects that the current user is a member of.
- * With RLS enabled on the `projects` table, we can query it directly.
- * The policy will ensure that only projects the user is a member of are returned.
  * @returns {Promise<Array>} - An array of project objects.
  */
 export async function getProjectsForUser() {
@@ -276,8 +93,30 @@ export async function getProjectsForUser() {
     return [];
   }
 
-  // RLS on the 'projects' table automatically filters for projects
-  // where the user is a member of 'project_members'.
+  // Get the current user's ID
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return [];
+  }
+
+  // Step 1: Find all workspace_ids the user is a member of.
+  const { data: memberOf, error: memberError } = await supabase
+    .from('workspace_members')
+    .select('workspace_id')
+    .eq('user_id', user.id);
+
+  if (memberError) {
+    console.error('Error fetching user workspaces:', memberError);
+    return [];
+  }
+
+  if (!memberOf || memberOf.length === 0) {
+    return []; // User is not a member of any workspace
+  }
+
+  const workspaceIds = memberOf.map(wm => wm.workspace_id);
+
+  // Step 2: Use those workspace IDs to find all projects.
   const { data, error } = await supabase
     .from('projects')
     .select(`
@@ -285,35 +124,15 @@ export async function getProjectsForUser() {
       name,
       description,
       workspace:workspaces ( name )
-    `);
+    `)
+    .in('workspace_id', workspaceIds);
 
   if (error) {
     console.error('Error fetching user projects:', error);
-    // If RLS prevents access, the error might be intentional.
-    // We'll log it but return an empty array to the UI.
     return [];
   }
 
   return data;
-}
-
-/**
- * Fetches project details for a given project ID.
- * @param {string} projectId - The ID of the project to fetch details for.
- * @returns {Promise<Object|null>} - The project details or null on error.
- */
-export async function getProjectDetails(projectId) {
-    if (!supabase) return null;
-    const { data, error } = await supabase
-        .from('projects')
-        .select('name')
-        .eq('id', projectId)
-        .single();
-    if (error) {
-        console.error('Error fetching project details:', error);
-        return null;
-    }
-    return data;
 }
 
 /**
