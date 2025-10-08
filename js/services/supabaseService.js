@@ -1,22 +1,23 @@
-// --- Supabase Client Setup ---
-// Используем глобальный объект конфигурации, который загружается из js/config.js
-const { SUPABASE_URL, SUPABASE_ANON_KEY } = window.APP_CONFIG;
+import { APP_CONFIG } from '../config.js';
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
 
-// Проверяем, что конфигурация загружена
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    throw new Error("Supabase URL или Anon Key не найдены. Убедитесь, что файл js/config.js существует и загружен правильно.");
+const { SUPABASE_URL, SUPABASE_ANON_KEY } = APP_CONFIG;
+
+// We check for valid Supabase credentials. If they aren't present, we log a warning
+// but allow the application to continue loading. This allows the UI to render
+// error states (like 'Project ID not found') without crashing the entire app.
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY || SUPABASE_ANON_KEY.includes('YOUR_SUPABASE_ANON_KEY')) {
+    console.warn("Supabase credentials are not configured. The application will not be able to fetch data from the backend. Please copy `js/config.example.js` to `js/config.js` and fill in your credentials.");
 }
 
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-// --- Data Fetching Functions ---
+const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 /**
  * Получает все задачи для указанного проекта.
  * @param {string} projectId - ID проекта.
  * @returns {Promise<Array>} - Массив объектов задач.
  */
-async function getTasks(projectId) {
+export async function getTasks(projectId) {
     const { data, error } = await supabaseClient
         .from('tasks')
         .select('*')
@@ -37,7 +38,7 @@ async function getTasks(projectId) {
  * @param {string} newStatus - Новый статус задачи.
  * @returns {Promise<Object|null>} - Обновленные данные или null в случае ошибки.
  */
-async function updateTaskStatus(taskId, newStatus) {
+export async function updateTaskStatus(taskId, newStatus) {
     const { data, error } = await supabaseClient
         .from('tasks')
         .update({ status: newStatus, updated_at: new Date().toISOString() })
@@ -52,10 +53,3 @@ async function updateTaskStatus(taskId, newStatus) {
 
     return data;
 }
-
-
-// Экспортируем функции для использования в других частях приложения
-window.supabaseService = {
-    getTasks,
-    updateTaskStatus,
-};

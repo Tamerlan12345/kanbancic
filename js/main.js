@@ -1,17 +1,20 @@
-const { createApp, defineComponent, nextTick } = Vue;
+// Import Vue features and other necessary modules
+import { createApp, defineComponent, nextTick, onMounted, ref } from 'https://cdn.jsdelivr.net/npm/vue@3';
+import { useKanban } from './composables/useKanban.js';
 
-// --- Компонент для отображения Задачи ---
+// --- TaskCard Component ---
+// This component is defined here because it's tightly coupled with the main app structure.
+// Using defineComponent is good practice, especially for components that might be recursive.
 const TaskCard = defineComponent({
     name: 'TaskCard',
     props: {
         task: { type: Object, required: true }
     },
-    // Добавляем data-атрибут для идентификации задачи
+    // The template includes a recursive call to itself to render child tasks.
     template: `
         <div class="kanban-task" :data-task-id="task.id">
             <p class="task-title">{{ task.title }}</p>
             <span class="task-priority">{{ task.priority }}</span>
-
             <div v-if="task.children && task.children.length > 0" class="child-tasks">
                 <TaskCard v-for="child in task.children" :key="child.id" :task="child" />
             </div>
@@ -19,33 +22,41 @@ const TaskCard = defineComponent({
     `
 });
 
-// --- Корневой компонент Приложения ---
+// --- Root App Component ---
 const App = {
     components: {
         TaskCard
     },
     setup() {
-        const projectId = '00000000-0000-0000-0000-000000000000';
-        // Получаем обработчик из нашего composable
+        const urlParams = new URLSearchParams(window.location.search);
+        const projectId = urlParams.get('projectId');
+        const showError = ref(!projectId);
+
+        // If no project ID is found, we'll show an error and stop.
+        if (showError.value) {
+            return {
+                showError,
+                columns: ref([]), // Provide an empty ref for columns to avoid template errors.
+            };
+        }
+
+        // If a project ID exists, set up the Kanban board logic.
         const { columns, handleTaskDrop } = useKanban(projectId);
 
-        // Инициализируем SortableJS после того, как DOM будет готов
+        // Initialize the SortableJS library for drag-and-drop functionality.
+        // This is done in onMounted to ensure the DOM elements are present.
         onMounted(() => {
-            // nextTick гарантирует, что v-for уже отрисовал все элементы
-            nextTick(() => {
+            nextTick(() => { // nextTick ensures v-for has finished rendering.
                 const columnElements = document.querySelectorAll('.column-tasks');
                 columnElements.forEach(columnEl => {
+                    // Sortable is available globally from the CDN script in index.html.
                     new Sortable(columnEl, {
-                        group: 'kanban-tasks', // Общая группа для всех колонок
+                        group: 'kanban-tasks',
                         animation: 150,
-                        ghostClass: 'sortable-ghost', // CSS-класс для "призрака" элемента
-
-                        // Вызывается при завершении перетаскивания
+                        ghostClass: 'sortable-ghost',
                         onEnd: (evt) => {
                             const taskId = evt.item.dataset.taskId;
                             const newStatus = evt.to.dataset.columnId;
-
-                            // Вызываем нашу логику, только если колонка изменилась
                             if (evt.from !== evt.to) {
                                 handleTaskDrop(taskId, newStatus);
                             }
@@ -57,11 +68,16 @@ const App = {
 
         return {
             columns,
+            showError,
         };
     },
-    // Добавляем data-атрибут для идентификации колонки
+    // The main template conditionally renders the error message or the Kanban board.
     template: `
-        <div class="kanban-board">
+        <div v-if="showError" class="error-container">
+            <h1>Ошибка: ID проекта не найден</h1>
+            <p>Пожалуйста, укажите <code>?projectId=...</code> в URL-адресе.</p>
+        </div>
+        <div v-else class="kanban-board">
             <div v-for="column in columns" :key="column.id" class="kanban-column">
                 <h2 class="column-title">{{ column.title }} ({{ column.tasks.length }})</h2>
                 <div class="column-tasks" :data-column-id="column.id">
@@ -72,5 +88,6 @@ const App = {
     `
 };
 
-// Создаем и монтируем приложение
+// Since this script is loaded as a module, it's deferred by default.
+// The DOM will be ready when it executes, so we can mount the app directly.
 createApp(App).mount('#app');
