@@ -78,8 +78,32 @@
           </div>
         </div>
         <div v-if="activeTab === 'AI-Ассистент'">
-          <p>Здесь будет чат с AI-ассистентом...</p>
-          <!-- AI assistant chat interface -->
+          <div class="ai-assistant-container">
+            <div class="prompt-buttons">
+              <button @click="handlePresetPrompt('Декомпозиция')" :disabled="isAiLoading">Декомпозировать задачу</button>
+              <button @click="handlePresetPrompt('Анализ рисков')" :disabled="isAiLoading">Анализ рисков</button>
+              <button @click="handlePresetPrompt('User Story')" :disabled="isAiLoading">Сгенерировать User Story</button>
+              <button @click="handlePresetPrompt('Отчет о прогрессе')" :disabled="isAiLoading">Отчет о прогрессе</button>
+            </div>
+            <div class="chat-history" ref="chatHistoryEl">
+              <div v-for="(msg, index) in chatMessages" :key="index" :class="['message', msg.type, { error: msg.isError }]">
+                <p v-html="formatMarkdown(msg.text)"></p>
+              </div>
+              <div v-if="isAiLoading" class="message assistant">
+                <p>Думаю...</p>
+              </div>
+            </div>
+            <div class="chat-input">
+              <input
+                type="text"
+                placeholder="Задайте свой вопрос..."
+                v-model="aiPrompt"
+                @keyup.enter="handleAiPrompt(aiPrompt)"
+                :disabled="isAiLoading"
+              />
+              <button @click="handleAiPrompt(aiPrompt)" :disabled="isAiLoading">Отправить</button>
+            </div>
+          </div>
         </div>
       </main>
     </div>
@@ -87,14 +111,17 @@
 </template>
 
 <script setup>
-import { ref, defineProps, defineEmits, onMounted, watch, computed } from 'vue';
+import { ref, defineProps, defineEmits, onMounted, watch, computed, nextTick } from 'vue';
 import {
   getTaskById,
   updateTask,
   getChecklistForTask,
   addChecklistItem,
   updateChecklistItem,
-  deleteChecklistItem
+  deleteChecklistItem,
+  invokeGeminiProxy,
+  getAiConversationHistory,
+  saveAiConversation
 } from '../services/supabaseService.js';
 
 const props = defineProps({
@@ -116,18 +143,42 @@ const activeTab = ref(tabs[0]);
 // --- Task Data State & Logic ---
 const taskData = ref(null);
 
-async function fetchTask() {
-  if (!props.taskId) return;
-  taskData.value = await getTaskById(props.taskId);
-  // Also fetch related data
-  if (taskData.value) {
-    fetchChecklist();
-  }
-}
-
 // --- Checklist State & Logic ---
 const checklist = ref([]);
 const newChecklistItem = ref('');
+
+// --- Time Tracking State & Logic ---
+const timeTracking = ref({ estimated: '', logged: '' });
+const timeSaveStatus = ref('');
+
+// --- AI Assistant State & Logic ---
+const aiConversation = ref([]);
+const aiPrompt = ref('');
+const isAiLoading = ref(false);
+const chatHistoryEl = ref(null); // For autoscrolling
+
+// A computed property to format the raw conversation data for display
+const chatMessages = computed(() => {
+  const messages = [];
+  // Add a default greeting if the history is empty
+  if (aiConversation.value.length === 0 && !isAiLoading.value) {
+      messages.push({ type: 'assistant', text: `Чем могу помочь с задачей "${props.taskTitle}"?` });
+  }
+
+  aiConversation.value.forEach(conv => {
+    messages.push({ type: 'user', text: conv.prompt });
+    if (conv.response) {
+      messages.push({ type: 'assistant', text: conv.response, isError: conv.isError });
+    }
+  });
+  return messages;
+});
+
+// Simple markdown formatter to handle line breaks from the AI
+function formatMarkdown(text) {
+  if (!text) return '';
+  return text.replace(/\n/g, '<br />');
+}
 
 async function fetchChecklist() {
   if (!taskData.value) return;
@@ -160,10 +211,6 @@ async function handleDeleteChecklistItem(itemId) {
   }
 }
 
-// --- Time Tracking State & Logic ---
-const timeTracking = ref({ estimated: '', logged: '' });
-const timeSaveStatus = ref('');
-
 watch(taskData, (newTask) => {
   if (newTask) {
     timeTracking.value.estimated = newTask.estimated_time || '';
@@ -184,6 +231,76 @@ async function handleSaveTimeTracking() {
     timeSaveStatus.value = 'Ошибка при сохранении.';
   }
   setTimeout(() => timeSaveStatus.value = '', 2000);
+}
+
+async function fetchAiHistory() {
+  if (!taskData.value) return;
+  aiConversation.value = await getAiConversationHistory(props.taskId);
+}
+
+async function handleAiPrompt(promptText) {
+  if (!promptText || isAiLoading.value) return;
+
+  const currentPrompt = promptText;
+  aiPrompt.value = ''; // Clear input immediately
+  isAiLoading.value = true;
+
+  const response = await invokeGeminiProxy(currentPrompt);
+
+  if (response) {
+    await saveAiConversation(props.taskId, currentPrompt, response);
+    await fetchAiHistory(); // Refresh history from DB
+  } else {
+    // Show a temporary error message without saving it
+    aiConversation.value.push({
+      prompt: currentPrompt,
+      response: 'Произошла ошибка при обращении к AI. Пожалуйста, попробуйте еще раз.',
+      isError: true,
+    });
+  }
+
+  isAiLoading.value = false;
+
+  // Scroll to bottom of chat
+  await nextTick();
+  if (chatHistoryEl.value) {
+    chatHistoryEl.value.scrollTop = chatHistoryEl.value.scrollHeight;
+  }
+}
+
+function handlePresetPrompt(promptType) {
+  if (!taskData.value) return;
+  const { title, description } = taskData.value;
+  let finalPrompt = '';
+
+  switch (promptType) {
+    case 'Декомпозиция':
+      finalPrompt = `Ты — опытный Project Manager. Проанализируй название и описание этой задачи: [Название: ${title}, Описание: ${description}]. Декомпозируй её на подробные подзадачи и представь в виде чек-листа в формате Markdown. Каждая подзадача должна быть конкретной, измеримой и реалистичной. Если описание неполное, задай уточняющие вопросы.`;
+      break;
+    case 'Анализ рисков':
+      finalPrompt = `Ты — риск-менеджер. Проанализируй задачу [${title}] и её подзадачи. Оцени реалистичность дедлайна, учитывая стандартные коэффициенты на непредвиденные обстоятельства (1.25x). Выяви потенциальные риски и "узкие места". Предложи план по их минимизации. Ответ дай в структурированном виде: 1. Оценка дедлайна. 2. Ключевые риски. 3. Рекомендации.`;
+      break;
+    case 'User Story':
+      finalPrompt = `Ты — бизнес-аналитик. На основе описания задачи [${description}] напиши User Story по формату: 'Как [роль], я хочу [действие], чтобы [ценность]' и определи критерии приёмки (Acceptance Criteria).`;
+      break;
+    case 'Отчет о прогрессе':
+        finalPrompt = `Ты — ассистент команды. Собери информацию по этой задаче: комментарии, выполненные пункты чек-листа, затраченное время. Напиши краткий и ёмкий отчёт о прогрессе для Project Manager. Стиль отчёта — деловой и структурированный.`;
+        break;
+  }
+
+  if (finalPrompt) {
+    handleAiPrompt(finalPrompt);
+  }
+}
+
+async function fetchTask() {
+  if (!props.taskId) return;
+  taskData.value = await getTaskById(props.taskId);
+  // Also fetch related data
+  if (taskData.value) {
+    fetchChecklist();
+    fetchAiHistory();
+  }
 }
 
 // Fetch data when component is mounted and when the task ID changes
@@ -415,5 +532,89 @@ watch(() => props.taskId, fetchTask);
 
 .detail-item.full-width {
   grid-column: 1 / -1;
+}
+
+/* AI Assistant Styles */
+.ai-assistant-container {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  height: 50vh; /* Give it a fixed height to contain the chat */
+}
+
+.prompt-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.prompt-buttons button {
+  background-color: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 20px;
+  padding: 8px 15px;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.prompt-buttons button:hover {
+  background-color: #e0e0e0;
+}
+
+.chat-history {
+  flex-grow: 1;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 15px;
+  overflow-y: auto;
+  background-color: #f9f9f9;
+}
+
+.message {
+  margin-bottom: 12px;
+  padding: 10px 15px;
+  border-radius: 18px;
+  max-width: 80%;
+  line-height: 1.5;
+}
+
+.message.assistant {
+  background-color: #e9ecef;
+  color: #333;
+  align-self: flex-start;
+}
+
+.message.user {
+  background-color: #007bff;
+  color: white;
+  align-self: flex-end;
+  margin-left: auto;
+}
+
+.chat-input {
+  display: flex;
+  gap: 10px;
+}
+
+.chat-input input {
+  flex-grow: 1;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 10px 15px;
+  font-size: 1em;
+}
+
+.chat-input button {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.chat-input button:hover {
+  background-color: #0056b3;
 }
 </style>
