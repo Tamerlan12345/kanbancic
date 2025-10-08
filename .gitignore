@@ -5,7 +5,7 @@ node_modules/
 dist/
 
 # Configuration
-/config.js
+/public/config.js
 
 # Log files
 npm-debug.log*
