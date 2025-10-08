@@ -7,8 +7,8 @@
       </header>
       <form @submit.prevent="handleSubmit">
         <div class="form-group">
-          <label for="task-name">Название задачи</label>
-        <input id="task-name" v-model="task.title" type="text" required>
+          <label for="task-title">Название задачи</label>
+          <input id="task-title" v-model="task.title" type="text" required placeholder="Например, 'Исправить ошибку аутентификации'">
         </div>
         <div class="form-group">
           <label for="task-description">Описание</label>
@@ -27,18 +27,20 @@
           <div class="form-group">
             <label for="task-priority">Приоритет</label>
             <select id="task-priority" v-model="task.priority" required>
-              <option value="Low">Низкий</option>
-              <option value="Medium">Средний</option>
-              <option value="High">Высокий</option>
-              <option value="Urgent">Срочный</option>
+                <option value="Lowest">Самый низкий</option>
+                <option value="Low">Низкий</option>
+                <option value="Medium">Средний</option>
+                <option value="High">Высокий</option>
+                <option value="Highest">Самый высокий</option>
             </select>
           </div>
           <div class="form-group">
             <label for="task-type">Тип задачи</label>
-            <select id="task-type" v-model="task.issue_type" required>
-              <option value="Task">Задача</option>
-              <option value="Bug">Ошибка</option>
-              <option value="Feature">Фича</option>
+            <select id="task-type" v-model="task.issue_type_id" required>
+              <option v-if="issueTypes.length === 0" disabled value="null">Загрузка...</option>
+              <option v-for="type in issueTypes" :key="type.id" :value="type.id">
+                {{ type.name }}
+              </option>
             </select>
           </div>
         </div>
@@ -52,20 +54,37 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
+import { getIssueTypes } from '../services/supabaseService.js';
 
 const emit = defineEmits(['close', 'save']);
+const urlParams = new URLSearchParams(window.location.search);
+const projectId = urlParams.get('projectId');
 
 const task = ref({
   title: '',
   description: '',
-  status: 'Backlog',
+  status: 'To Do',
   priority: 'Medium',
-  issue_type: 'Task',
+  issue_type_id: null,
+});
+
+const issueTypes = ref([]);
+
+onMounted(async () => {
+  if (projectId) {
+    issueTypes.value = await getIssueTypes(projectId);
+    if (issueTypes.value.length > 0) {
+      task.value.issue_type_id = issueTypes.value[0].id; // Default to the first type
+    }
+  }
 });
 
 const handleSubmit = () => {
-  // TODO: Add validation
+  if (!task.value.title || !task.value.issue_type_id) {
+    alert('Пожалуйста, заполните все обязательные поля.');
+    return;
+  }
   emit('save', { ...task.value });
 };
 </script>
@@ -136,6 +155,7 @@ form {
   border: 1px solid #ccc;
   border-radius: 4px;
   font-size: 1em;
+  box-sizing: border-box;
 }
 .modal-footer {
   display: flex;
