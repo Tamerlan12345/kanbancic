@@ -1,23 +1,23 @@
 <template>
   <div class="auth-container">
-    <h1>Sign Up</h1>
+    <h1>Регистрация</h1>
     <form @submit.prevent="handleSignup">
       <div class="form-group">
-        <label for="email">Email</label>
+        <label for="email">Электронная почта</label>
         <input type="email" id="email" v-model="email" required />
       </div>
       <div class="form-group">
-        <label for="password">Password</label>
+        <label for="password">Пароль</label>
         <input type="password" id="password" v-model="password" required />
       </div>
       <button type="submit" :disabled="isLoading">
-        {{ isLoading ? 'Signing up...' : 'Sign Up' }}
+        {{ isLoading ? 'Регистрация...' : 'Зарегистрироваться' }}
       </button>
       <p v-if="successMessage" class="success-message">{{ successMessage }}</p>
       <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
     </form>
     <p>
-      Already have an account? <router-link to="/login">Login</router-link>
+      Уже есть аккаунт? <router-link to="/login">Войти</router-link>
     </p>
   </div>
 </template>

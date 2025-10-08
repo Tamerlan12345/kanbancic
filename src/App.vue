@@ -6,11 +6,11 @@
         <div class="nav-links">
           <template v-if="user">
             <span>{{ user.email }}</span>
-            <button @click="handleLogout" class="logout-button">Logout</button>
+            <button @click="handleLogout" class="logout-button">Выйти</button>
           </template>
           <template v-else>
-            <router-link to="/login">Login</router-link>
-            <router-link to="/signup">Sign Up</router-link>
+            <router-link to="/login">Вход</router-link>
+            <router-link to="/signup">Регистрация</router-link>
           </template>
         </div>
       </nav>

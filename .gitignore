@@ -14,3 +14,6 @@ yarn-error.log*
 
 # Vite cache
 .vite/
+
+# Local environment variables
+.env.local
