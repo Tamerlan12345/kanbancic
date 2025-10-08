@@ -1,8 +1,6 @@
 // Import Vue features and other necessary modules
-import * as Vue from 'https://cdn.jsdelivr.net/npm/vue@3';
+import { createApp, defineComponent, nextTick, onMounted, ref } from 'https://cdn.jsdelivr.net/npm/vue@3/dist/vue.esm-browser.js';
 import { useKanban } from './composables/useKanban.js';
-
-const { createApp, defineComponent, nextTick, onMounted, ref } = Vue;
 
 // --- TaskCard Component ---
 // This component is defined here because it's tightly coupled with the main app structure.
