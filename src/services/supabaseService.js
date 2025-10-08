@@ -1,31 +1,19 @@
 import { createClient } from '@supabase/supabase-js';
 
-// This module-level variable will hold the Supabase client instance.
-let supabaseClient = null;
+// Get Supabase credentials from Vite's environment variables.
+// See .env.example for more details.
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-/**
- * Initializes the Supabase client by dynamically and safely importing the configuration.
- * This function must be called before any other function in this module.
- */
-export async function initSupabase() {
-    let APP_CONFIG = {};
+// Create and export the Supabase client instance.
+// If the credentials are not available or are placeholders, this will be null.
+export const supabase = (supabaseUrl && supabaseAnonKey && !supabaseUrl.includes('YOUR_SUPABASE'))
+    ? createClient(supabaseUrl, supabaseAnonKey)
+    : null;
 
-    try {
-        // Dynamically import the config from the project root.
-        const configModule = await import('/config.js');
-        APP_CONFIG = configModule.APP_CONFIG;
-    } catch (error) {
-        console.warn("`config.js` not found. Please copy `config.example.js` to `config.js` and fill in your credentials.");
-    }
-
-    const { SUPABASE_URL, SUPABASE_ANON_KEY } = APP_CONFIG;
-
-    // Initialize the client only if the credentials are valid and not placeholders.
-    if (SUPABASE_URL && SUPABASE_ANON_KEY && !SUPABASE_ANON_KEY.includes('YOUR_SUPABASE')) {
-        supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    } else {
-        console.warn("Supabase client not initialized due to missing or placeholder credentials. The application will run in offline mode.");
-    }
+// Log a warning if the client could not be initialized.
+if (!supabase) {
+    console.warn("Supabase client not initialized. Please create a .env.local file with your credentials (see .env.example). The application will run in offline mode.");
 }
 
 /**
@@ -34,12 +22,12 @@ export async function initSupabase() {
  * @returns {Promise<Array>} - An array of task objects.
  */
 export async function getTasks(projectId) {
-    if (!supabaseClient) {
+    if (!supabase) {
         console.log("Offline mode: cannot fetch tasks.");
-        return []; // Return empty array if client is not available.
+        return [];
     }
 
-    const { data, error } = await supabaseClient
+    const { data, error } = await supabase
         .from('tasks')
         .select('*')
         .eq('project_id', projectId)
@@ -60,12 +48,12 @@ export async function getTasks(projectId) {
  * @returns {Promise<Object|null>} - The updated task data or null in case of an error.
  */
 export async function updateTaskStatus(taskId, newStatus) {
-    if (!supabaseClient) {
+    if (!supabase) {
         console.log("Offline mode: cannot update task status.");
-        return null; // Return null if client is not available.
+        return null;
     }
 
-    const { data, error } = await supabaseClient
+    const { data, error } = await supabase
         .from('tasks')
         .update({ status: newStatus, updated_at: new Date().toISOString() })
         .eq('id', taskId)
