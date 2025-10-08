@@ -81,6 +81,8 @@ export async function createTask(taskData, projectId) {
 
 /**
  * Fetches all projects that the current user is a member of.
+ * With RLS enabled on the `projects` table, we can query it directly.
+ * The policy will ensure that only projects the user is a member of are returned.
  * @returns {Promise<Array>} - An array of project objects.
  */
 export async function getProjectsForUser() {
@@ -89,30 +91,8 @@ export async function getProjectsForUser() {
     return [];
   }
 
-  // Get the current user's ID
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return [];
-  }
-
-  // Step 1: Find all workspace_ids the user is a member of.
-  const { data: memberOf, error: memberError } = await supabase
-    .from('workspace_members')
-    .select('workspace_id')
-    .eq('user_id', user.id);
-
-  if (memberError) {
-    console.error('Error fetching user workspaces:', memberError);
-    return [];
-  }
-
-  if (!memberOf || memberOf.length === 0) {
-    return []; // User is not a member of any workspace
-  }
-
-  const workspaceIds = memberOf.map(wm => wm.workspace_id);
-
-  // Step 2: Use those workspace IDs to find all projects.
+  // RLS on the 'projects' table automatically filters for projects
+  // where the user is a member of 'project_members'.
   const { data, error } = await supabase
     .from('projects')
     .select(`
@@ -120,11 +100,12 @@ export async function getProjectsForUser() {
       name,
       description,
       workspace:workspaces ( name )
-    `)
-    .in('workspace_id', workspaceIds);
+    `);
 
   if (error) {
     console.error('Error fetching user projects:', error);
+    // If RLS prevents access, the error might be intentional.
+    // We'll log it but return an empty array to the UI.
     return [];
   }
 
