@@ -1,5 +1,6 @@
-// This module now uses an explicit initialization pattern to avoid top-level await issues.
+import { createClient } from '@supabase/supabase-js';
 
+// This module-level variable will hold the Supabase client instance.
 let supabaseClient = null;
 
 /**
@@ -10,19 +11,17 @@ export async function initSupabase() {
     let APP_CONFIG = {};
 
     try {
-        // Dynamically import the config to prevent the app from crashing if it's not present.
-        const configModule = await import('../config.js');
+        // Dynamically import the config from the project root.
+        const configModule = await import('/config.js');
         APP_CONFIG = configModule.APP_CONFIG;
     } catch (error) {
-        console.warn("`js/config.js` not found. Using fallback. Please copy `js/config.example.js` to `js/config.js` and fill in your credentials.");
+        console.warn("`config.js` not found. Please copy `config.example.js` to `config.js` and fill in your credentials.");
     }
 
     const { SUPABASE_URL, SUPABASE_ANON_KEY } = APP_CONFIG;
 
     // Initialize the client only if the credentials are valid and not placeholders.
     if (SUPABASE_URL && SUPABASE_ANON_KEY && !SUPABASE_ANON_KEY.includes('YOUR_SUPABASE')) {
-        // Supabase is loaded globally from the <script> tag in index.html.
-        const { createClient } = supabase;
         supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     } else {
         console.warn("Supabase client not initialized due to missing or placeholder credentials. The application will run in offline mode.");
@@ -30,9 +29,9 @@ export async function initSupabase() {
 }
 
 /**
- * Получает все задачи для указанного проекта.
- * @param {string} projectId - ID проекта.
- * @returns {Promise<Array>} - Массив объектов задач.
+ * Fetches all tasks for a specified project.
+ * @param {string} projectId - The ID of the project.
+ * @returns {Promise<Array>} - An array of task objects.
  */
 export async function getTasks(projectId) {
     if (!supabaseClient) {
@@ -47,7 +46,7 @@ export async function getTasks(projectId) {
         .order('created_at', { ascending: true });
 
     if (error) {
-        console.error('Ошибка при получении задач:', error);
+        console.error('Error fetching tasks:', error);
         return [];
     }
 
@@ -55,10 +54,10 @@ export async function getTasks(projectId) {
 }
 
 /**
- * Обновляет статус задачи.
- * @param {string} taskId - ID задачи для обновления.
- * @param {string} newStatus - Новый статус задачи.
- * @returns {Promise<Object|null>} - Обновленные данные или null в случае ошибки.
+ * Updates the status of a task.
+ * @param {string} taskId - The ID of the task to update.
+ * @param {string} newStatus - The new status of the task.
+ * @returns {Promise<Object|null>} - The updated task data or null in case of an error.
  */
 export async function updateTaskStatus(taskId, newStatus) {
     if (!supabaseClient) {
@@ -74,7 +73,7 @@ export async function updateTaskStatus(taskId, newStatus) {
         .single();
 
     if (error) {
-        console.error('Ошибка при обновлении статуса задачи:', error);
+        console.error('Error updating task status:', error);
         return null;
     }
 
