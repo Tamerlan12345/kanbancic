@@ -1,18 +1,33 @@
-import { APP_CONFIG } from '../config.js';
+// This module now uses an explicit initialization pattern to avoid top-level await issues.
 
-const { SUPABASE_URL, SUPABASE_ANON_KEY } = APP_CONFIG;
+let supabaseClient = null;
 
-// We check for valid Supabase credentials. If they aren't present, we log a warning
-// but allow the application to continue loading. This allows the UI to render
-// error states (like 'Project ID not found') without crashing the entire app.
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY || SUPABASE_ANON_KEY.includes('YOUR_SUPABASE_ANON_KEY')) {
-    console.warn("Supabase credentials are not configured. The application will not be able to fetch data from the backend. Please copy `js/config.example.js` to `js/config.js` and fill in your credentials.");
+/**
+ * Initializes the Supabase client by dynamically and safely importing the configuration.
+ * This function must be called before any other function in this module.
+ */
+export async function initSupabase() {
+    let APP_CONFIG = {};
+
+    try {
+        // Dynamically import the config to prevent the app from crashing if it's not present.
+        const configModule = await import('../config.js');
+        APP_CONFIG = configModule.APP_CONFIG;
+    } catch (error) {
+        console.warn("`js/config.js` not found. Using fallback. Please copy `js/config.example.js` to `js/config.js` and fill in your credentials.");
+    }
+
+    const { SUPABASE_URL, SUPABASE_ANON_KEY } = APP_CONFIG;
+
+    // Initialize the client only if the credentials are valid and not placeholders.
+    if (SUPABASE_URL && SUPABASE_ANON_KEY && !SUPABASE_ANON_KEY.includes('YOUR_SUPABASE')) {
+        // Supabase is loaded globally from the <script> tag in index.html.
+        const { createClient } = supabase;
+        supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    } else {
+        console.warn("Supabase client not initialized due to missing or placeholder credentials. The application will run in offline mode.");
+    }
 }
-
-// Supabase is loaded globally from the <script> tag in index.html.
-// We access it directly from the window object.
-const { createClient } = supabase;
-const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 /**
  * Получает все задачи для указанного проекта.
@@ -20,6 +35,11 @@ const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
  * @returns {Promise<Array>} - Массив объектов задач.
  */
 export async function getTasks(projectId) {
+    if (!supabaseClient) {
+        console.log("Offline mode: cannot fetch tasks.");
+        return []; // Return empty array if client is not available.
+    }
+
     const { data, error } = await supabaseClient
         .from('tasks')
         .select('*')
@@ -41,6 +61,11 @@ export async function getTasks(projectId) {
  * @returns {Promise<Object|null>} - Обновленные данные или null в случае ошибки.
  */
 export async function updateTaskStatus(taskId, newStatus) {
+    if (!supabaseClient) {
+        console.log("Offline mode: cannot update task status.");
+        return null; // Return null if client is not available.
+    }
+
     const { data, error } = await supabaseClient
         .from('tasks')
         .update({ status: newStatus, updated_at: new Date().toISOString() })

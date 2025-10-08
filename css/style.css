@@ -1,3 +1,8 @@
+/* Basic styling for v-cloak to prevent flash of uncompiled content */
+[v-cloak] {
+    display: none;
+}
+
 /* --- Общие стили --- */
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;

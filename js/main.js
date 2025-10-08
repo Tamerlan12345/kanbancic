@@ -1,10 +1,10 @@
 // Import Vue features and other necessary modules
 import { createApp, defineComponent, nextTick, onMounted, ref } from 'https://cdn.jsdelivr.net/npm/vue@3/dist/vue.esm-browser.js';
 import { useKanban } from './composables/useKanban.js';
+import { initSupabase } from './services/supabaseService.js'; // Import the new init function
 
 // --- TaskCard Component ---
 // This component is defined here because it's tightly coupled with the main app structure.
-// Using defineComponent is good practice, especially for components that might be recursive.
 const TaskCard = defineComponent({
     name: 'TaskCard',
     props: {
@@ -43,13 +43,11 @@ const App = {
         // If a project ID exists, set up the Kanban board logic.
         const { columns, handleTaskDrop } = useKanban(projectId);
 
-        // Initialize the SortableJS library for drag-and-drop functionality.
-        // This is done in onMounted to ensure the DOM elements are present.
+        // Initialize SortableJS for drag-and-drop functionality.
         onMounted(() => {
             nextTick(() => { // nextTick ensures v-for has finished rendering.
                 const columnElements = document.querySelectorAll('.column-tasks');
                 columnElements.forEach(columnEl => {
-                    // Sortable is available globally from the CDN script in index.html.
                     new Sortable(columnEl, {
                         group: 'kanban-tasks',
                         animation: 150,
@@ -71,23 +69,19 @@ const App = {
             showError,
         };
     },
-    // The main template conditionally renders the error message or the Kanban board.
-    template: `
-        <div v-if="showError" class="error-container">
-            <h1>Ошибка: ID проекта не найден</h1>
-            <p>Пожалуйста, укажите <code>?projectId=...</code> в URL-адресе.</p>
-        </div>
-        <div v-else class="kanban-board">
-            <div v-for="column in columns" :key="column.id" class="kanban-column">
-                <h2 class="column-title">{{ column.title }} ({{ column.tasks.length }})</h2>
-                <div class="column-tasks" :data-column-id="column.id">
-                    <TaskCard v-for="task in column.tasks" :key="task.id" :task="task" />
-                </div>
-            </div>
-        </div>
-    `
+    // The template is now correctly located in index.html, so this property is removed.
 };
 
-// Since this script is loaded as a module, it's deferred by default.
-// The DOM will be ready when it executes, so we can mount the app directly.
-createApp(App).mount('#app');
+// --- App Initialization ---
+// We wrap the app mount in an async function to ensure all prerequisite async operations are complete.
+async function initializeAndMountApp() {
+    // First, initialize the Supabase service. This will handle loading the config safely.
+    await initSupabase();
+
+    // Once initialization is complete, create and mount the Vue app.
+    // This will remove the v-cloak attribute.
+    createApp(App).mount('#app');
+}
+
+// Start the application.
+initializeAndMountApp();
