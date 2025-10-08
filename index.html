@@ -17,10 +17,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
 
     <!-- Загрузка скриптов приложения в правильном порядке -->
-    <script src="js/config.js"></script> <!-- ЗАГРУЗКА КОНФИГУРАЦИИ -->
-    <script src="js/services/supabaseService.js"></script>
-    <script src="js/composables/useKanban.js"></script>
-    <script src="js/composables/useAI.js"></script>
-    <script src="js/main.js"></script>
+    <!-- config.js and other libraries will be imported by main.js -->
+    <script type="module" src="js/main.js"></script>
 </body>
 </html>

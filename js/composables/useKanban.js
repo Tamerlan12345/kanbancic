@@ -1,6 +1,5 @@
-// --- Composable for Kanban Board Logic ---
-
-const { ref, onMounted, computed } = Vue;
+import { ref, onMounted } from 'https://cdn.jsdelivr.net/npm/vue@3';
+import { getTasks, updateTaskStatus } from '../services/supabaseService.js';
 
 /**
  * Преобразует плоский список задач в иерархическую структуру (дерево).
@@ -13,20 +12,16 @@ function buildTaskHierarchy(tasks) {
 
     for (const task of taskMap.values()) {
         if (task.parent_id && taskMap.has(task.parent_id)) {
-            // Если есть родитель, добавляем задачу в его список дочерних
             taskMap.get(task.parent_id).children.push(task);
         } else {
-            // Если родителя нет, это задача верхнего уровня
             rootTasks.push(task);
         }
     }
     return rootTasks;
 }
 
-
-function useKanban(projectId) {
+export function useKanban(projectId) {
     const tasks = ref([]);
-
     const columns = ref([
         { id: 'Backlog', title: 'Бэклог', tasks: [] },
         { id: 'To Do', title: 'К выполнению', tasks: [] },
@@ -34,19 +29,13 @@ function useKanban(projectId) {
         { id: 'Done', title: 'Готово', tasks: [] },
     ]);
 
-    /**
-     * Получает задачи, строит иерархию и распределяет их по колонкам.
-     */
     async function fetchAndDistributeTasks() {
-        const fetchedTasks = await window.supabaseService.getTasks(projectId);
+        const fetchedTasks = await getTasks(projectId);
         tasks.value = fetchedTasks;
-
-        // Строим иерархию из плоского списка
         const hierarchicalTasks = buildTaskHierarchy(fetchedTasks);
 
         columns.value.forEach(col => col.tasks = []);
 
-        // Распределяем по колонкам только задачи верхнего уровня
         hierarchicalTasks.forEach(task => {
             const column = columns.value.find(col => col.id === task.status);
             if (column) {
@@ -55,17 +44,10 @@ function useKanban(projectId) {
         });
     }
 
-    /**
-     * Обрабатывает перемещение задачи, обновляя ее статус.
-     * @param {string} taskId - ID задачи, которую переместили.
-     * @param {string} newStatus - Новый статус (ID колонки, куда переместили).
-     */
     async function handleTaskDrop(taskId, newStatus) {
-        // Оптимистичное обновление UI: немедленно перемещаем задачу
         let taskToMove;
         let sourceColumn;
 
-        // Находим и удаляем задачу из исходной колонки
         for (const col of columns.value) {
             const taskIndex = col.tasks.findIndex(t => t.id === taskId);
             if (taskIndex !== -1) {
@@ -75,25 +57,21 @@ function useKanban(projectId) {
             }
         }
 
-        // Добавляем задачу в новую колонку
         if (taskToMove) {
             const destinationColumn = columns.value.find(c => c.id === newStatus);
             if (destinationColumn) {
-                taskToMove.status = newStatus; // Обновляем статус в объекте
+                taskToMove.status = newStatus;
                 destinationColumn.tasks.push(taskToMove);
             }
         } else {
             console.error("Не удалось найти перемещаемую задачу в UI.");
-            return; // Выходим, если задача не найдена
+            return;
         }
 
-        // Асинхронно обновляем данные в базе данных
-        const updatedTask = await window.supabaseService.updateTaskStatus(taskId, newStatus);
+        const updatedTask = await updateTaskStatus(taskId, newStatus);
 
-        // Если обновление в БД не удалось, откатываем изменения в UI
         if (!updatedTask) {
             console.error(`Не удалось сохранить новый статус для задачи ${taskId}. Откат UI.`);
-            // Удаляем задачу из новой колонки
             const destinationColumn = columns.value.find(c => c.id === newStatus);
             if (destinationColumn) {
                 const taskIndex = destinationColumn.tasks.findIndex(t => t.id === taskId);
@@ -101,9 +79,8 @@ function useKanban(projectId) {
                     destinationColumn.tasks.splice(taskIndex, 1);
                 }
             }
-            // Возвращаем задачу в исходную колонку
             if (sourceColumn) {
-                taskToMove.status = sourceColumn.id; // Возвращаем старый статус
+                taskToMove.status = sourceColumn.id;
                 sourceColumn.tasks.push(taskToMove);
             }
         }
@@ -113,9 +90,6 @@ function useKanban(projectId) {
 
     return {
         columns,
-        fetchTasks: fetchAndDistributeTasks,
         handleTaskDrop,
     };
 }
-
-window.useKanban = useKanban;
