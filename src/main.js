@@ -5,5 +5,9 @@ import App from './App.vue';
 // The logic inside supabaseService.js runs once when the module is imported.
 import './services/supabaseService.js';
 
+import router from './router';
+
 // Create and mount the root Vue app.
-createApp(App).mount('#app');
+const app = createApp(App);
+app.use(router);
+app.mount('#app');
