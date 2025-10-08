@@ -1,5 +1,6 @@
 import { ref, onMounted } from 'vue';
 import { getTasks, updateTaskStatus } from '../services/supabaseService.js';
+import { useLogger } from './useLogger.js';
 
 /**
  * Transforms a flat list of tasks into a hierarchical structure (a tree).
@@ -24,6 +25,7 @@ function buildTaskHierarchy(tasks) {
 }
 
 export function useKanban(projectId) {
+    const { info: logInfo, error: logError } = useLogger();
     const columns = ref([
         { id: 'Backlog', title: 'Backlog', tasks: [] },
         { id: 'To Do', title: 'To Do', tasks: [] },
@@ -41,7 +43,7 @@ export function useKanban(projectId) {
         const fetchedTasks = await getTasks(projectId);
 
         if (fetchedTasks.length === 0) {
-            console.log("DIAGNOSTIC: getTasks() returned an empty array. This might be because the project has no tasks or because of restrictive Row-Level Security (RLS) policies on the 'tasks' table in Supabase.");
+            logInfo("DIAGNOSTIC: getTasks() returned an empty array. This might be because the project has no tasks or because of restrictive Row-Level Security (RLS) policies on the 'tasks' table in Supabase.", { projectId });
         }
 
         const hierarchicalTasks = buildTaskHierarchy(fetchedTasks);
@@ -82,7 +84,7 @@ export function useKanban(projectId) {
         }
 
         if (!taskToMove) {
-            console.error("Could not find the moved task in the UI.");
+            logError("Could not find the moved task in the UI.", { taskId });
             return;
         }
 
@@ -91,7 +93,7 @@ export function useKanban(projectId) {
         if (destinationColumn) {
             destinationColumn.tasks.push({ ...taskToMove, status: newStatus });
         } else {
-             console.error("Could not find the destination column.");
+             logError("Could not find the destination column.", { taskId, newStatus });
              columns.value = previousState; // Rollback if destination is invalid
              return;
         }
@@ -101,7 +103,7 @@ export function useKanban(projectId) {
 
         // 5. If the API call fails, roll back the UI to the saved state.
         if (!updatedTask) {
-            console.error(`Failed to save the new status for task ${taskId}. Rolling back UI.`);
+            logError(`Failed to save the new status for task ${taskId}. Rolling back UI.`, { taskId, newStatus });
             columns.value = previousState;
         }
     }

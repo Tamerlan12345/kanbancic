@@ -1,5 +1,8 @@
 import { ref } from 'vue';
 import { supabase } from '../services/supabaseService';
+import { useLogger } from './useLogger';
+
+const { error: logError } = useLogger();
 
 // These refs are module-level state, making them singletons.
 // Any component that imports and uses `useAuth` will share this state.
@@ -16,7 +19,7 @@ const initializeAuth = async () => {
     // Fetch the initial session from Supabase.
     const { data, error } = await supabase.auth.getSession();
     if (error) {
-      console.error('Error getting session:', error.message);
+      logError('Error getting session', error);
       return;
     }
 
@@ -31,7 +34,7 @@ const initializeAuth = async () => {
     });
 
   } catch (error) {
-    console.error('Error initializing auth:', error);
+    logError('Error initializing auth', error);
   }
 };
 
