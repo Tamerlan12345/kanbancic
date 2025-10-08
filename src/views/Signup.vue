@@ -26,7 +26,9 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuth } from '../composables/useAuth';
+import { useLogger } from '../composables/useLogger';
 
+const { info: logInfo, error: logError } = useLogger();
 const email = ref('');
 const password = ref('');
 const errorMessage = ref('');
@@ -42,11 +44,13 @@ const handleSignup = async () => {
   try {
     await signUp(email.value, password.value);
     successMessage.value = 'Success! Please check your email to confirm your account.';
+    logInfo('User signup successful, pending email confirmation', { email: email.value });
     // We don't redirect immediately, as the user needs to confirm their email.
     // A better user experience might be to show a "Check your email" page.
     // For now, we'll just show a message.
   } catch (error) {
     errorMessage.value = error.message;
+    logError('Signup failed', error);
   } finally {
     isLoading.value = false;
   }

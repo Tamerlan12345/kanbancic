@@ -25,7 +25,9 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuth } from '../composables/useAuth';
+import { useLogger } from '../composables/useLogger';
 
+const { error: logError } = useLogger();
 const email = ref('');
 const password = ref('');
 const errorMessage = ref('');
@@ -41,6 +43,7 @@ const handleLogin = async () => {
     router.push('/');
   } catch (error) {
     errorMessage.value = error.message;
+    logError('Login failed', error);
   } finally {
     isLoading.value = false;
   }
