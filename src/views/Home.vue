@@ -6,7 +6,7 @@
   <div v-else class="kanban-page-container">
     <header class="kanban-header">
       <h1 class="project-title-header">Доска проекта</h1>
-      <button class="create-task-button" @click="isModalOpen = true">Создать задачу</button>
+      <button class="create-task-button" @click="isCreateModalOpen = true">Создать задачу</button>
     </header>
     <div class="kanban-board">
       <div v-for="column in columns" :key="column.id" class="kanban-column">
@@ -18,11 +18,24 @@
           <div v-if="column.tasks.length === 0" class="empty-column-message">
             <p>Задач в этой колонке нет.</p>
           </div>
-          <TaskCard v-for="task in column.tasks" :key="task.id" :task="task" />
+          <TaskCard
+            v-for="task in column.tasks"
+            :key="task.id"
+            :task="task"
+            @view-task="handleViewTask"
+          />
         </div>
       </div>
     </div>
-    <TaskModal v-if="isModalOpen" @close="isModalOpen = false" @save="handleCreateTask" />
+    <!-- Modal for creating tasks -->
+    <TaskModal v-if="isCreateModalOpen" @close="isCreateModalOpen = false" @save="handleCreateTask" />
+    <!-- Modal for viewing task details -->
+    <TaskDetailModal
+      v-if="isDetailModalOpen"
+      :task-id="selectedTask.id"
+      :task-title="selectedTask.title"
+      @close="isDetailModalOpen = false"
+    />
   </div>
 </template>
 
@@ -33,6 +46,7 @@ import { useKanban } from '../composables/useKanban.js';
 import TaskCard from '../components/TaskCard.vue';
 import TaskCardSkeleton from '../components/TaskCardSkeleton.vue';
 import TaskModal from '../components/TaskModal.vue';
+import TaskDetailModal from '../components/TaskDetailModal.vue';
 import { checkProjectExists } from '../services/supabaseService.js';
 
 // --- State Initialization ---
@@ -40,14 +54,21 @@ const urlParams = new URLSearchParams(window.location.search);
 const projectId = urlParams.get('projectId');
 const showError = ref(false); // Default to false, check in onMounted
 const errorMessage = ref(''); // To hold the specific error message
-const isModalOpen = ref(false);
+const isCreateModalOpen = ref(false);
+const isDetailModalOpen = ref(false);
+const selectedTask = ref(null);
 
 // Initialize columns directly. The composable will only fetch tasks if projectId is valid.
 const { columns, isLoading, handleTaskDrop, addNewTask } = useKanban(projectId);
 
 const handleCreateTask = async (taskData) => {
   await addNewTask(taskData);
-  isModalOpen.value = false;
+  isCreateModalOpen.value = false;
+};
+
+const handleViewTask = (task) => {
+  selectedTask.value = task;
+  isDetailModalOpen.value = true;
 };
 
 // --- Hooks ---
