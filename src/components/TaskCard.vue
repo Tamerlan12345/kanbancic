@@ -1,5 +1,5 @@
 <template>
-  <div class="kanban-task" :data-task-id="task.id">
+  <div class="kanban-task" :data-task-id="task.id" @click="handleClick">
     <p class="task-title">{{ task.title }}</p>
     <span class="task-priority">{{ task.priority }}</span>
     <div v-if="task.children && task.children.length > 0" class="child-tasks">
@@ -10,15 +10,27 @@
 </template>
 
 <script setup>
-import { defineProps } from 'vue';
+import { defineProps, defineEmits } from 'vue';
 
 // Define the component's props. The 'task' prop is expected to be an object.
-defineProps({
+const props = defineProps({
   task: {
     type: Object,
     required: true
   }
 });
+
+// Define the custom event that this component can emit.
+const emit = defineEmits(['view-task']);
+
+// When the card is clicked, emit the 'view-task' event with the task's ID.
+function handleClick() {
+  // We only want to open the modal for top-level tasks, not nested ones.
+  // This can be improved later if sub-tasks need their own detail views.
+  if (props.task.parent_id === null) {
+      emit('view-task', props.task);
+  }
+}
 </script>
 
 <style scoped>
