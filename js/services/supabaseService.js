@@ -1,5 +1,7 @@
 import { APP_CONFIG } from '../config.js';
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+// The default CDN import for Supabase v2 doesn't expose a named 'createClient' export.
+// We need to import the default export from the module distribution file.
+import * as supabase from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
 
 const { SUPABASE_URL, SUPABASE_ANON_KEY } = APP_CONFIG;
 
@@ -10,7 +12,7 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY || SUPABASE_ANON_KEY.includes('YOUR_SUPA
     console.warn("Supabase credentials are not configured. The application will not be able to fetch data from the backend. Please copy `js/config.example.js` to `js/config.js` and fill in your credentials.");
 }
 
-const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 /**
  * Получает все задачи для указанного проекта.
