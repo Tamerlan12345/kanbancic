@@ -1,15 +1,28 @@
 <template>
   <div v-if="showError" class="error-container">
-    <h1>Error</h1>
+    <h1>Ошибка</h1>
     <p>{{ errorMessage }}</p>
   </div>
-  <div v-else class="kanban-board">
-    <div v-for="column in columns" :key="column.id" class="kanban-column">
-      <h2 class="column-title">{{ column.title }} ({{ column.tasks.length }})</h2>
-      <div class="column-tasks" :data-column-id="column.id">
-        <TaskCard v-for="task in column.tasks" :key="task.id" :task="task" />
+  <div v-else class="kanban-page-container">
+    <header class="kanban-header">
+      <h1 class="project-title-header">Доска проекта</h1>
+      <button class="create-task-button" @click="isModalOpen = true">Создать задачу</button>
+    </header>
+    <div class="kanban-board">
+      <div v-for="column in columns" :key="column.id" class="kanban-column">
+        <h2 class="column-title">{{ column.title }} ({{ isLoading ? '...' : column.tasks.length }})</h2>
+        <div v-if="isLoading" class="column-tasks">
+          <TaskCardSkeleton v-for="n in 3" :key="n" />
+        </div>
+        <div v-else class="column-tasks" :data-column-id="column.id">
+          <div v-if="column.tasks.length === 0" class="empty-column-message">
+            <p>Задач в этой колонке нет.</p>
+          </div>
+          <TaskCard v-for="task in column.tasks" :key="task.id" :task="task" />
+        </div>
       </div>
     </div>
+    <TaskModal v-if="isModalOpen" @close="isModalOpen = false" @save="handleCreateTask" />
   </div>
 </template>
 
@@ -18,6 +31,8 @@ import { ref, onMounted, nextTick } from 'vue';
 import Sortable from 'sortablejs';
 import { useKanban } from '../composables/useKanban.js';
 import TaskCard from '../components/TaskCard.vue';
+import TaskCardSkeleton from '../components/TaskCardSkeleton.vue';
+import TaskModal from '../components/TaskModal.vue';
 import { checkProjectExists } from '../services/supabaseService.js';
 
 // --- State Initialization ---
@@ -25,22 +40,28 @@ const urlParams = new URLSearchParams(window.location.search);
 const projectId = urlParams.get('projectId');
 const showError = ref(false); // Default to false, check in onMounted
 const errorMessage = ref(''); // To hold the specific error message
+const isModalOpen = ref(false);
 
 // Initialize columns directly. The composable will only fetch tasks if projectId is valid.
-const { columns, handleTaskDrop } = useKanban(projectId);
+const { columns, isLoading, handleTaskDrop, addNewTask } = useKanban(projectId);
+
+const handleCreateTask = async (taskData) => {
+  await addNewTask(taskData);
+  isModalOpen.value = false;
+};
 
 // --- Hooks ---
 onMounted(async () => {
   if (!projectId) {
     showError.value = true;
-    errorMessage.value = 'Project ID not provided. Please add `?projectId=` to the URL.';
+    errorMessage.value = 'ID проекта не указан. Пожалуйста, добавьте `?projectId=` в URL.';
     return;
   }
 
   const projectExists = await checkProjectExists(projectId);
   if (!projectExists) {
     showError.value = true;
-    errorMessage.value = `Project with ID "${projectId}" was not found. Please verify the ID.`;
+    errorMessage.value = `Проект с ID "${projectId}" не найден. Пожалуйста, проверьте ID.`;
     return;
   }
 
@@ -66,10 +87,42 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.kanban-page-container {
+  padding: 0 20px 20px 20px;
+}
+
+.kanban-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 0;
+  border-bottom: 1px solid #e0e0e0;
+  margin-bottom: 20px;
+}
+
+.project-title-header {
+  font-size: 1.8em;
+  margin: 0;
+}
+
+.create-task-button {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 10px 15px;
+  font-size: 1em;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.create-task-button:hover {
+  background-color: #0056b3;
+}
+
 .kanban-board {
   display: flex;
   gap: 20px;
-  padding: 20px;
   overflow-x: auto;
 }
 
@@ -95,5 +148,17 @@ onMounted(async () => {
 .error-container {
   text-align: center;
   padding: 50px;
+}
+
+.empty-column-message {
+  text-align: center;
+  color: #888;
+  padding: 20px;
+  border: 2px dashed #ddd;
+  border-radius: 8px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 </style>

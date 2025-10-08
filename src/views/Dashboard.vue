@@ -1,15 +1,15 @@
 <template>
   <div class="dashboard-container">
     <header class="dashboard-header">
-      <h1>Your Projects</h1>
-      <p>Select a project to view its Kanban board.</p>
+      <h1>Ваши проекты</h1>
+      <p>Выберите проект для просмотра его канбан-доски.</p>
     </header>
     <div v-if="isLoading" class="loading-spinner">
-      Loading projects...
+      Загрузка проектов...
     </div>
     <div v-else-if="projects.length === 0" class="no-projects">
-      <p>You are not a member of any projects yet.</p>
-      <p>Create your first project in the admin panel.</p>
+      <p>Вы еще не являетесь участником ни одного проекта.</p>
+      <p>Создайте свой первый проект в панели администратора.</p>
     </div>
     <div v-else class="projects-grid">
       <router-link v-for="project in projects" :key="project.id" :to="`/kanban?projectId=${project.id}`" class="project-card-link">

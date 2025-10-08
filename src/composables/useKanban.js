@@ -1,5 +1,5 @@
 import { ref, onMounted } from 'vue';
-import { getTasks, updateTaskStatus } from '../services/supabaseService.js';
+import { getTasks, updateTaskStatus, createTask } from '../services/supabaseService.js';
 import { useLogger } from './useLogger.js';
 
 /**
@@ -26,25 +26,28 @@ function buildTaskHierarchy(tasks) {
 
 export function useKanban(projectId) {
     const { info: logInfo, error: logError } = useLogger();
+    const isLoading = ref(true); // Add loading state
     const columns = ref([
-        { id: 'Backlog', title: 'Backlog', tasks: [] },
-        { id: 'To Do', title: 'To Do', tasks: [] },
-        { id: 'In Progress', title: 'In Progress', tasks: [] },
-        { id: 'Done', title: 'Done', tasks: [] },
+        { id: 'Backlog', title: 'Бэклог', tasks: [] },
+        { id: 'To Do', title: 'К выполнению', tasks: [] },
+        { id: 'In Progress', title: 'В работе', tasks: [] },
+        { id: 'Done', title: 'Готово', tasks: [] },
     ]);
 
     /**
      * Fetches tasks from the service and distributes them into the correct columns.
      */
     async function fetchAndDistributeTasks() {
-        if (!projectId) {
-            return; // Do not fetch if there is no project ID.
-        }
-        const fetchedTasks = await getTasks(projectId);
+        isLoading.value = true;
+        try {
+            if (!projectId) {
+                return; // Do not fetch if there is no project ID.
+            }
+            const fetchedTasks = await getTasks(projectId);
 
-        if (fetchedTasks.length === 0) {
-            logInfo("DIAGNOSTIC: getTasks() returned an empty array. This might be because the project has no tasks or because of restrictive Row-Level Security (RLS) policies on the 'tasks' table in Supabase.", { projectId });
-        }
+            if (fetchedTasks.length === 0) {
+                logInfo("DIAGNOSTIC: getTasks() returned an empty array. This might be because the project has no tasks or because of restrictive Row-Level Security (RLS) policies on the 'tasks' table in Supabase.", { projectId });
+            }
 
         const hierarchicalTasks = buildTaskHierarchy(fetchedTasks);
 
@@ -58,6 +61,11 @@ export function useKanban(projectId) {
                 column.tasks.push(task);
             }
         });
+        } catch (error) {
+            logError('Failed to fetch and distribute tasks', error);
+        } finally {
+            isLoading.value = false;
+        }
     }
 
     /**
@@ -108,11 +116,34 @@ export function useKanban(projectId) {
         }
     }
 
+    /**
+     * Handles the creation of a new task.
+     * @param {Object} taskData - The data for the new task from the modal.
+     */
+    async function addNewTask(taskData) {
+        const newTask = await createTask(taskData, projectId);
+        if (newTask) {
+            // Add an empty children array to be consistent with the data structure
+            const taskWithChildren = { ...newTask, children: [] };
+            const column = columns.value.find(col => col.id === taskWithChildren.status);
+            if (column) {
+                column.tasks.push(taskWithChildren);
+            } else {
+                logError("Could not find column to add new task to.", { status: taskWithChildren.status });
+            }
+        } else {
+            logError("Failed to create task in the backend.", { taskData });
+            // Optionally, show a user-facing error message here.
+        }
+    }
+
     // Fetch tasks when the composable is mounted.
     onMounted(fetchAndDistributeTasks);
 
     return {
         columns,
+        isLoading,
         handleTaskDrop,
+        addNewTask,
     };
 }

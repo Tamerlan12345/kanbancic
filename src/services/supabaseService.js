@@ -42,6 +42,44 @@ export async function getTasks(projectId) {
 }
 
 /**
+ * Creates a new task in the database.
+ * @param {Object} taskData - The data for the new task (name, description, status, etc.).
+ * @param {string} projectId - The ID of the project this task belongs to.
+ * @returns {Promise<Object|null>} - The newly created task object or null on error.
+ */
+export async function createTask(taskData, projectId) {
+    if (!supabase) {
+        console.log("Offline mode: cannot create task.");
+        return null;
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+        console.error("User not authenticated. Cannot create task.");
+        return null;
+    }
+
+    const taskToInsert = {
+        ...taskData,
+        project_id: projectId,
+        author_id: user.id,
+    };
+
+    const { data, error } = await supabase
+        .from('tasks')
+        .insert(taskToInsert)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error creating task:', error);
+        return null;
+    }
+
+    return data;
+}
+
+/**
  * Fetches all projects that the current user is a member of.
  * @returns {Promise<Array>} - An array of project objects.
  */
