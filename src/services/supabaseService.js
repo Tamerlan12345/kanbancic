@@ -42,6 +42,36 @@ export async function getTasks(projectId) {
 }
 
 /**
+ * Checks if a project with the given ID exists.
+ * @param {string} projectId - The ID of the project to check.
+ * @returns {Promise<boolean>} - True if the project exists, false otherwise.
+ */
+export async function checkProjectExists(projectId) {
+    if (!supabase) {
+        console.log("Offline mode: cannot check project existence.");
+        // In offline mode, assume it exists to avoid blocking UI.
+        // The task fetch will return empty anyway.
+        return true;
+    }
+
+    const { data, error } = await supabase
+        .from('projects')
+        .select('id')
+        .eq('id', projectId)
+        .single();
+
+    // .single() throws an error if no row is found (PGRST116), which is expected.
+    // We only care about other, unexpected errors.
+    if (error && error.code !== 'PGRST116') {
+        console.error('Error checking project existence:', error);
+        return false; // On unexpected error, assume it doesn't exist.
+    }
+
+    // If data is not null, the project exists.
+    return !!data;
+}
+
+/**
  * Updates the status of a task.
  * @param {string} taskId - The ID of the task to update.
  * @param {string} newStatus - The new status of the task.

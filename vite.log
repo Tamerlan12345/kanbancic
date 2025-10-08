@@ -2,4 +2,8 @@
 > quantum-pm-platform@1.0.0 dev
 > vite
 
-sh: 1: vite: not found
+
+  VITE v4.5.14  ready in 537 ms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: use --host to expose
