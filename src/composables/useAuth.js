@@ -15,6 +15,12 @@ const session = ref(null);
  * This function is called automatically when this module is first imported.
  */
 const initializeAuth = async () => {
+  // IMPORTANT FIX: Check if the Supabase client exists before using it.
+  if (!supabase) {
+    console.error("Critical Error: Supabase client is not initialized. Check your .env.local file. Auth functions will be disabled.");
+    return; // Stop execution to prevent a crash.
+  }
+
   try {
     // Fetch the initial session from Supabase.
     const { data, error } = await supabase.auth.getSession();
@@ -65,6 +71,11 @@ export function useAuth() {
   const signIn = async (email, password) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
+
+    // FIX: Manually update state to prevent race conditions with the router guard.
+    user.value = data.user;
+    session.value = data.session;
+
     return data;
   };
 
