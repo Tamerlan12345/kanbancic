@@ -335,19 +335,42 @@ export async function getWorkspaces() {
 }
 
 /**
- * Creates a new project by invoking an edge function.
+ * Creates a new project by invoking an edge function using native fetch.
  * @param {{ name: string, description: string, workspace_id: string }} projectData - The project data.
  */
 export async function createProject(projectData) {
-    if (!supabase) return null;
-    const { data, error } = await supabase.functions.invoke('create-project', {
-        body: projectData,
-    });
-    if (error) {
-        console.error('Error creating project:', error);
-        return { error };
+    if (!supabase) return { error: { message: "Supabase client not initialized." } };
+
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session) {
+        return { error: { message: "User not authenticated." } };
     }
-    return { data };
+
+    try {
+        const response = await fetch(`${supabaseUrl}/functions/v1/create-project`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`,
+                'apikey': supabaseAnonKey
+            },
+            body: JSON.stringify(projectData),
+        });
+
+        const responseData = await response.json();
+
+        if (!response.ok) {
+            // Если ответ не успешный, создаем объект ошибки
+            throw new Error(responseData.error || `Request failed with status ${response.status}`);
+        }
+
+        return { data: responseData, error: null };
+
+    } catch (error) {
+        console.error('Error creating project:', error);
+        return { data: null, error };
+    }
 }
 
 
