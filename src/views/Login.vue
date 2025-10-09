@@ -40,7 +40,7 @@ const handleLogin = async () => {
   errorMessage.value = '';
   try {
     await signIn(email.value, password.value);
-    router.push('/');
+    router.push('/dashboard');
   } catch (error) {
     errorMessage.value = error.message;
     logError('Login failed', error);

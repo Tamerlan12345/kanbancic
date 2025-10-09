@@ -336,7 +336,6 @@ export async function getProjectsForUser() {
       id,
       name,
       description,
-      created_by,
       workspace:workspaces ( name )
     `);
 
