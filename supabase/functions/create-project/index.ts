@@ -8,9 +8,9 @@ const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 serve(async (req) => {
-  // This is needed if you're planning to invoke your function from a browser.
+  // Обработка preflight-запроса
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders, status: 200 });
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
@@ -31,9 +31,6 @@ serve(async (req) => {
       .single();
 
     if (projectError) throw projectError;
-
-    // The 'on_project_created_assign_owner' trigger now handles this automatically.
-    // Removing this manual insert prevents a race condition and ensures a single source of truth.
 
     return new Response(JSON.stringify(project), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
