@@ -130,6 +130,55 @@ export async function createTask(taskData, projectId) {
     return data;
 }
 
+/**
+ * Creates multiple sub-tasks for a given parent task.
+ * @param {string} parentId - The ID of the parent task.
+ * @param {Array<{title: string}>} tasks - An array of objects, each with a title for the new sub-task.
+ * @returns {Promise<Array|null>} - A promise that resolves to an array of the created sub-tasks.
+ */
+export async function createSubTasks(parentId, tasks) {
+    if (!supabase) return null;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+        console.error("User not authenticated. Cannot create sub-tasks.");
+        return null;
+    }
+
+    // Fetch the parent task to get essential details like project_id
+    const { data: parentTask, error: parentError } = await supabase
+        .from('tasks')
+        .select('project_id, issue_type_id')
+        .eq('id', parentId)
+        .single();
+
+    if (parentError || !parentTask) {
+        console.error('Error fetching parent task for sub-task creation:', parentError);
+        return null;
+    }
+
+    const subTasksToInsert = tasks.map(task => ({
+        title: task.title,
+        parent_id: parentId,
+        project_id: parentTask.project_id,
+        reporter_id: user.id,
+        status: 'To Do', // Default status for new sub-tasks
+        issue_type_id: parentTask.issue_type_id, // Inherit issue type from parent
+    }));
+
+    const { data, error } = await supabase
+        .from('tasks')
+        .insert(subTasksToInsert)
+        .select();
+
+    if (error) {
+        console.error('Error creating sub-tasks:', error);
+        return null;
+    }
+
+    return data;
+}
+
 // --- Checklist Functions ---
 export async function getChecklistForTask(taskId) {
   if (!supabase) return [];
@@ -190,7 +239,8 @@ export async function invokeGeminiProxy(prompt) {
     console.error('Error invoking Gemini proxy:', error);
     return null;
   }
-  return data?.response;
+  // The function now returns the entire structured JSON object from the backend.
+  return data;
 }
 
 export async function getAiConversationHistory(taskId) {

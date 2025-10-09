@@ -85,11 +85,33 @@
               <button @click="handlePresetPrompt('User Story')" :disabled="isAiLoading">Сгенерировать User Story</button>
               <button @click="handlePresetPrompt('Отчет о прогрессе')" :disabled="isAiLoading">Отчет о прогрессе</button>
             </div>
+            <!-- Interactive AI Response Block -->
+            <div v-if="aiInteractiveResponse" class="ai-interactive-response">
+              <div v-if="aiInteractiveResponse.type === 'decomposition'" class="interactive-decomposition">
+                <div class="interactive-header">
+                  <h4>AI предлагает следующие подзадачи:</h4>
+                </div>
+                <ul class="subtask-list">
+                  <li v-for="(task, index) in aiInteractiveResponse.payload" :key="index" class="subtask-item">
+                    <input type="checkbox" :id="`subtask-${index}`" :value="task.title" v-model="selectedSubtasks">
+                    <label :for="`subtask-${index}`">{{ task.title }}</label>
+                  </li>
+                </ul>
+                <div class="interactive-actions">
+                  <button @click="handleCreateSubtasks" :disabled="selectedSubtasks.length === 0 || isAiLoading" class="create-btn">
+                    Создать {{ selectedSubtasks.length }} подзадач
+                  </button>
+                  <button @click="dismissInteractiveResponse" :disabled="isAiLoading" class="dismiss-btn">Отклонить</button>
+                </div>
+              </div>
+              <!-- Future interactive blocks for 'user_story' can be added here -->
+            </div>
+
             <div class="chat-history" ref="chatHistoryEl">
               <div v-for="(msg, index) in chatMessages" :key="index" :class="['message', msg.type, { error: msg.isError }]">
                 <p v-html="formatMarkdown(msg.text)"></p>
               </div>
-              <div v-if="isAiLoading" class="message assistant">
+              <div v-if="isAiLoading && !aiInteractiveResponse" class="message assistant">
                 <p>Думаю...</p>
               </div>
             </div>
@@ -115,6 +137,7 @@ import { ref, defineProps, defineEmits, onMounted, watch, computed, nextTick } f
 import {
   getTaskById,
   updateTask,
+  createSubTasks, // <-- Import new function
   getChecklistForTask,
   addChecklistItem,
   updateChecklistItem,
@@ -135,7 +158,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['close']);
+const emit = defineEmits(['close', 'tasks-updated']); // <-- Add 'tasks-updated'
 
 const tabs = ['Детали', 'Чек-листы', 'Учет времени', 'AI-Ассистент'];
 const activeTab = ref(tabs[0]);
@@ -156,19 +179,38 @@ const aiConversation = ref([]);
 const aiPrompt = ref('');
 const isAiLoading = ref(false);
 const chatHistoryEl = ref(null); // For autoscrolling
+const aiInteractiveResponse = ref(null); // To hold structured AI responses
+const selectedSubtasks = ref([]); // To hold user-selected subtasks for creation
 
 // A computed property to format the raw conversation data for display
 const chatMessages = computed(() => {
   const messages = [];
-  // Add a default greeting if the history is empty
-  if (aiConversation.value.length === 0 && !isAiLoading.value) {
+  // Show a greeting only if there's no conversation, loading, or interactive response
+  if (aiConversation.value.length === 0 && !isAiLoading.value && !aiInteractiveResponse.value) {
       messages.push({ type: 'assistant', text: `Чем могу помочь с задачей "${props.taskTitle}"?` });
   }
 
   aiConversation.value.forEach(conv => {
     messages.push({ type: 'user', text: conv.prompt });
     if (conv.response) {
-      messages.push({ type: 'assistant', text: conv.response, isError: conv.isError });
+      let responseText = '';
+      const isError = conv.isError || false;
+      try {
+        const parsed = JSON.parse(conv.response);
+        // Only display 'text' type responses in the main chat history
+        if (parsed.type === 'text') {
+          responseText = parsed.payload;
+        }
+        // Interactive types are handled by the `aiInteractiveResponse` state
+        // and won't be displayed directly in the chat log.
+      } catch (e) {
+        // Fallback for older, non-JSON responses from history
+        responseText = conv.response;
+      }
+      // Add the message to the chat only if it's meant for display
+      if(responseText) {
+          messages.push({ type: 'assistant', text: responseText, isError });
+      }
     }
   });
   return messages;
@@ -244,14 +286,26 @@ async function handleAiPrompt(promptText) {
   const currentPrompt = promptText;
   aiPrompt.value = ''; // Clear input immediately
   isAiLoading.value = true;
+  aiInteractiveResponse.value = null; // Clear previous interactive UI
+  selectedSubtasks.value = []; // Clear selections
 
   const response = await invokeGeminiProxy(currentPrompt);
 
+  isAiLoading.value = false;
+
   if (response) {
-    await saveAiConversation(props.taskId, currentPrompt, response);
-    await fetchAiHistory(); // Refresh history from DB
+    // Save the raw, stringified JSON response to the database for history
+    await saveAiConversation(props.taskId, currentPrompt, JSON.stringify(response));
+
+    if (response.type === 'decomposition' || response.type === 'user_story') {
+      // If the response is interactive, display the special UI component
+      aiInteractiveResponse.value = response;
+    } else {
+      // If it's a standard text response, refresh the chat history to display it
+      await fetchAiHistory();
+    }
   } else {
-    // Show a temporary error message without saving it
+    // Handle cases where the AI invocation fails
     aiConversation.value.push({
       prompt: currentPrompt,
       response: 'Произошла ошибка при обращении к AI. Пожалуйста, попробуйте еще раз.',
@@ -259,12 +313,39 @@ async function handleAiPrompt(promptText) {
     });
   }
 
-  isAiLoading.value = false;
-
-  // Scroll to bottom of chat
+  // Scroll to the bottom of the chat history
   await nextTick();
   if (chatHistoryEl.value) {
     chatHistoryEl.value.scrollTop = chatHistoryEl.value.scrollHeight;
+  }
+}
+
+// --- New functions for interactive AI responses ---
+function dismissInteractiveResponse() {
+  aiInteractiveResponse.value = null;
+  selectedSubtasks.value = [];
+}
+
+async function handleCreateSubtasks() {
+  if (selectedSubtasks.value.length === 0) return;
+
+  const tasksToCreate = selectedSubtasks.value.map(title => ({ title }));
+  isAiLoading.value = true;
+
+  const createdTasks = await createSubTasks(props.taskId, tasksToCreate);
+
+  isAiLoading.value = false;
+
+  if (createdTasks && createdTasks.length > 0) {
+    // TODO: Replace with a proper toast notification
+    alert(`${createdTasks.length} subtasks created successfully!`);
+    dismissInteractiveResponse();
+    // Emit event to notify parent component (e.g., the Kanban board) to refresh
+    emit('tasks-updated');
+    emit('close'); // Close modal after successful creation
+  } else {
+    // TODO: Replace with a proper toast notification
+    alert('Error: Could not create subtasks.');
   }
 }
 
@@ -273,18 +354,22 @@ function handlePresetPrompt(promptType) {
   const { title, description } = taskData.value;
   let finalPrompt = '';
 
+  // These prompts are now simpler, as the main instructions are in the backend.
+  // We just need to provide the context (title, description) and the intent.
+  const taskContext = `Task Title: "${title}". Description: "${description || 'No description'}"`;
+
   switch (promptType) {
     case 'Декомпозиция':
-      finalPrompt = `Ты — опытный Project Manager. Проанализируй название и описание этой задачи: [Название: ${title}, Описание: ${description}]. Декомпозируй её на подробные подзадачи и представь в виде чек-листа в формате Markdown. Каждая подзадача должна быть конкретной, измеримой и реалистичной. Если описание неполное, задай уточняющие вопросы.`;
+      finalPrompt = `Decompose this task into subtasks. Context: ${taskContext}`;
       break;
     case 'Анализ рисков':
-      finalPrompt = `Ты — риск-менеджер. Проанализируй задачу [${title}] и её подзадачи. Оцени реалистичность дедлайна, учитывая стандартные коэффициенты на непредвиденные обстоятельства (1.25x). Выяви потенциальные риски и "узкие места". Предложи план по их минимизации. Ответ дай в структурированном виде: 1. Оценка дедлайна. 2. Ключевые риски. 3. Рекомендации.`;
+      finalPrompt = `Analyze the risks for this task. Context: ${taskContext}`;
       break;
     case 'User Story':
-      finalPrompt = `Ты — бизнес-аналитик. На основе описания задачи [${description}] напиши User Story по формату: 'Как [роль], я хочу [действие], чтобы [ценность]' и определи критерии приёмки (Acceptance Criteria).`;
+      finalPrompt = `Generate a User Story and Acceptance Criteria for this task. Context: ${taskContext}`;
       break;
     case 'Отчет о прогрессе':
-        finalPrompt = `Ты — ассистент команды. Собери информацию по этой задаче: комментарии, выполненные пункты чек-листа, затраченное время. Напиши краткий и ёмкий отчёт о прогрессе для Project Manager. Стиль отчёта — деловой и структурированный.`;
+        finalPrompt = `Generate a progress report for this task. Context: ${taskContext}`;
         break;
   }
 
@@ -616,5 +701,77 @@ watch(() => props.taskId, fetchTask);
 
 .chat-input button:hover {
   background-color: #0056b3;
+}
+
+/* Interactive AI Response Styles */
+.ai-interactive-response {
+  border: 1px solid #007bff;
+  border-radius: 8px;
+  margin-bottom: 15px;
+  background-color: #f0f7ff;
+}
+
+.interactive-header {
+  padding: 10px 15px;
+  border-bottom: 1px solid #bce0ff;
+}
+
+.interactive-header h4 {
+  margin: 0;
+  color: #004085;
+}
+
+.subtask-list {
+  list-style-type: none;
+  padding: 10px 15px;
+  margin: 0;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.subtask-item {
+  display: flex;
+  align-items: center;
+  padding: 5px 0;
+}
+
+.subtask-item input[type="checkbox"] {
+  margin-right: 10px;
+}
+
+.subtask-item label {
+  cursor: pointer;
+}
+
+.interactive-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 10px 15px;
+  border-top: 1px solid #bce0ff;
+  background-color: #e6f2ff;
+}
+
+.interactive-actions button {
+  padding: 8px 15px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.interactive-actions .create-btn {
+  background-color: #28a745;
+  color: white;
+}
+
+.interactive-actions .create-btn:disabled {
+  background-color: #a3d9b1;
+  cursor: not-allowed;
+}
+
+.interactive-actions .dismiss-btn {
+  background-color: #6c757d;
+  color: white;
 }
 </style>
