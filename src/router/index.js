@@ -6,6 +6,7 @@ import Home from '../views/Home.vue'; // <-- This is now the Kanban board view
 import Login from '../views/Login.vue';
 import Signup from '../views/Signup.vue';
 import Dashboard from '../views/Dashboard.vue'; // <-- Import our new dashboard
+import ProjectSettings from '../views/ProjectSettings.vue';
 
 const routes = [
   {
@@ -18,6 +19,12 @@ const routes = [
     path: '/dashboard',
     name: 'Dashboard',
     component: Dashboard,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/projects/:id/settings',
+    name: 'ProjectSettings',
+    component: ProjectSettings,
     meta: { requiresAuth: true }
   },
   {

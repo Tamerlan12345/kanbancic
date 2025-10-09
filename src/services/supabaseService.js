@@ -36,6 +36,20 @@ export async function getTasks(projectId) {
 }
 
 /**
+ * Fetches the role of the current user for a specific project.
+ * @param {string} projectId - The ID of the project.
+ */
+export async function getMyProjectRole(projectId) {
+    if (!supabase) return { data: null, error: new Error('Supabase client not initialized') };
+    const { data, error } = await supabase.rpc('get_my_project_role', { p_project_id: projectId });
+    if (error) {
+        console.error('Error fetching user project role:', error);
+        return { data: null, error };
+    }
+    return { data, error: null };
+}
+
+/**
  * Fetches a single task by its ID.
  */
 export async function getTaskById(taskId) {
@@ -272,7 +286,48 @@ export async function saveAiConversation(taskId, prompt, response) {
   return data;
 }
 
-// --- Project Functions ---
+// --- Project & Team Management Functions ---
+
+/**
+ * Fetches all workspaces available to the user.
+ * Note: Assumes a simple setup where all workspaces are public.
+ * Adjust RLS policies if workspaces become private.
+ */
+export async function getWorkspaces() {
+    if (!supabase) return [];
+    const { data, error } = await supabase
+        .from('workspaces')
+        .select('id, name');
+
+    if (error) {
+        console.error('Error fetching workspaces:', error);
+        return [];
+    }
+    return data;
+}
+
+/**
+ * Creates a new project by invoking an edge function.
+ * @param {{ name: string, description: string, workspace_id: string }} projectData - The project data.
+ */
+export async function createProject(projectData) {
+    if (!supabase) return null;
+    const { data, error } = await supabase.functions.invoke('create-project', {
+        body: projectData,
+    });
+    if (error) {
+        console.error('Error creating project:', error);
+        return { error };
+    }
+    return { data };
+}
+
+
+/**
+ * Fetches projects for the currently authenticated user.
+ * This function is now correct and relies on RLS policies on 'projects' table,
+ * which checks for the user's membership in 'project_members'.
+ */
 export async function getProjectsForUser() {
   if (!supabase) return [];
   const { data, error } = await supabase
@@ -281,14 +336,83 @@ export async function getProjectsForUser() {
       id,
       name,
       description,
+      created_by,
       workspace:workspaces ( name )
     `);
+
   if (error) {
     console.error('Error fetching user projects:', error);
     return [];
   }
   return data;
 }
+
+
+/**
+ * Fetches all members for a given project.
+ * @param {string} projectId - The ID of the project.
+ */
+export async function getProjectMembers(projectId) {
+    if (!supabase) return [];
+    const { data, error } = await supabase
+        .from('project_members')
+        .select(`
+            user_id,
+            role,
+            profile:profiles ( full_name, avatar_url, email )
+        `)
+        .eq('project_id', projectId);
+
+    if (error) {
+        console.error('Error fetching project members:', error);
+        return [];
+    }
+    return data;
+}
+
+/**
+ * Invites a user to a project.
+ * @param {string} projectId - The ID of the project.
+ * @param {string} email - The email of the user to invite.
+ */
+export async function inviteProjectMember(projectId, email) {
+    if (!supabase) return null;
+    const { data, error } = await supabase.functions.invoke('manage-project-members', {
+        body: { action: 'invite', project_id: projectId, email },
+    });
+    if (error) return { error };
+    return { data };
+}
+
+/**
+ * Updates the role of a project member.
+ * @param {string} projectId - The ID of the project.
+ * @param {string} userId - The ID of the user.
+ * @param {string} role - The new role.
+ */
+export async function updateProjectMemberRole(projectId, userId, role) {
+    if (!supabase) return null;
+    const { data, error } = await supabase.functions.invoke('manage-project-members', {
+        body: { action: 'update_role', project_id: projectId, user_id: userId, role },
+    });
+    if (error) return { error };
+    return { data };
+}
+
+/**
+ * Removes a member from a project.
+ * @param {string} projectId - The ID of the project.
+ * @param {string} userId - The ID of the user to remove.
+ */
+export async function removeProjectMember(projectId, userId) {
+    if (!supabase) return null;
+    const { data, error } = await supabase.functions.invoke('manage-project-members', {
+        body: { action: 'remove', project_id: projectId, user_id: userId },
+    });
+    if (error) return { error };
+    return { data };
+}
+
 
 export async function getProjectDetails(projectId) {
     if (!supabase) return null;
