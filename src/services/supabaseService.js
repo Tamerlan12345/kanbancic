@@ -218,6 +218,34 @@ export async function addChecklistItem(taskId, title) {
   return data;
 }
 
+/**
+ * Adds multiple checklist items in a single request.
+ * @param {Array<Object>} items - An array of checklist item objects to insert.
+ * Each object should have `task_id`, `title`, and `is_completed`.
+ */
+export async function addChecklistItemsBatch(items) {
+    if (!supabase) return null;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    // Add user ID to each item
+    const itemsToInsert = items.map(item => ({
+        ...item,
+        created_by_user_id: user.id,
+    }));
+
+    const { data, error } = await supabase
+        .from('task_checklists')
+        .insert(itemsToInsert)
+        .select();
+
+    if (error) {
+        console.error('Error batch adding checklist items:', error);
+        return null;
+    }
+    return data;
+}
+
 export async function updateChecklistItem(itemId, updates) {
   if (!supabase) return null;
   const { data, error } = await supabase

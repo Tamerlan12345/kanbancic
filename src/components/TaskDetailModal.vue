@@ -99,7 +99,10 @@
                 </ul>
                 <div class="interactive-actions">
                   <button @click="handleCreateSubtasks" :disabled="selectedSubtasks.length === 0 || isAiLoading" class="create-btn">
-                    Создать {{ selectedSubtasks.length }} подзадач
+                    Создать подзадачи
+                  </button>
+                  <button @click="handleCreateChecklist" :disabled="selectedSubtasks.length === 0 || isAiLoading" class="create-btn-alt">
+                    Создать как чек-лист
                   </button>
                   <button @click="dismissInteractiveResponse" :disabled="isAiLoading" class="dismiss-btn">Отклонить</button>
                 </div>
@@ -137,9 +140,10 @@ import { ref, defineProps, defineEmits, onMounted, watch, computed, nextTick } f
 import {
   getTaskById,
   updateTask,
-  createSubTasks, // <-- Import new function
+  createSubTasks,
   getChecklistForTask,
   addChecklistItem,
+  addChecklistItemsBatch, // <-- Import new function
   updateChecklistItem,
   deleteChecklistItem,
   invokeGeminiProxy,
@@ -346,6 +350,34 @@ async function handleCreateSubtasks() {
   } else {
     // TODO: Replace with a proper toast notification
     alert('Error: Could not create subtasks.');
+  }
+}
+
+async function handleCreateChecklist() {
+  if (selectedSubtasks.value.length === 0) return;
+
+  // This will require a new service function `addChecklistItemsBatch`
+  // which will be implemented in the next step.
+  const itemsToCreate = selectedSubtasks.value.map(title => ({
+    title,
+    task_id: props.taskId,
+    is_completed: false,
+  }));
+
+  isAiLoading.value = true;
+
+  const createdItems = await addChecklistItemsBatch(itemsToCreate);
+
+  isAiLoading.value = false;
+
+  if (createdItems) {
+    // TODO: Replace with a proper toast notification
+    alert(`${itemsToCreate.length} checklist items created successfully!`);
+    dismissInteractiveResponse();
+    await fetchChecklist(); // Refresh the checklist view
+  } else {
+    // TODO: Replace with a proper toast notification
+    alert('Error: Could not create checklist items.');
   }
 }
 
@@ -762,6 +794,11 @@ watch(() => props.taskId, fetchTask);
 
 .interactive-actions .create-btn {
   background-color: #28a745;
+  color: white;
+}
+
+.interactive-actions .create-btn-alt {
+  background-color: #17a2b8;
   color: white;
 }
 
