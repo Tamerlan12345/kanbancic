@@ -61,13 +61,14 @@ export async function updateTask(taskId, updates) {
         .from('tasks')
         .update({ ...updates, updated_at: new Date().toISOString() })
         .eq('id', taskId)
-        .select()
-        .single();
+        .select(); // <-- Removed .single()
+
     if (error) {
         console.error('Error updating task:', error);
         return null;
     }
-    return data;
+    // Return the first record from the array, or null if the array is empty
+    return data?.[0] || null;
 }
 
 /**
