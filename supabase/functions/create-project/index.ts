@@ -31,11 +31,8 @@ serve(async (req) => {
 
     if (projectError) throw projectError;
 
-    const { error: memberError } = await supabase
-      .from('project_members')
-      .insert({ project_id: project.id, user_id: user.id, role: 'Owner' });
-
-    if (memberError) throw memberError;
+    // The 'on_project_created_assign_owner' trigger now handles this automatically.
+    // Removing this manual insert prevents a race condition and ensures a single source of truth.
 
     return new Response(JSON.stringify(project), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
