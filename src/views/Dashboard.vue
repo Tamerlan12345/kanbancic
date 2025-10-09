@@ -1,15 +1,19 @@
 <template>
   <div class="dashboard-container">
     <header class="dashboard-header">
-      <h1>Ваши проекты</h1>
-      <p>Выберите проект для просмотра его канбан-доски.</p>
+      <div class="header-content">
+        <h1>Ваши проекты</h1>
+        <p>Выберите проект для просмотра или создайте новый.</p>
+      </div>
+      <button class="btn-primary" @click="isModalOpen = true">Создать проект</button>
     </header>
+
     <div v-if="isLoading" class="loading-spinner">
       Загрузка проектов...
     </div>
     <div v-else-if="projects.length === 0" class="no-projects">
       <p>Вы еще не являетесь участником ни одного проекта.</p>
-      <p>Создайте свой первый проект в панели администратора.</p>
+      <p>Нажмите "Создать проект", чтобы начать работу.</p>
     </div>
     <div v-else class="projects-grid">
       <router-link v-for="project in projects" :key="project.id" :to="`/kanban?projectId=${project.id}`" class="project-card-link">
@@ -20,21 +24,39 @@
         </div>
       </router-link>
     </div>
+
+    <CreateProjectModal
+      v-if="isModalOpen"
+      @close="isModalOpen = false"
+      @project-created="handleProjectCreated"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue';
 import { getProjectsForUser } from '../services/supabaseService.js';
+import CreateProjectModal from '../components/CreateProjectModal.vue';
 
 const projects = ref([]);
 const isLoading = ref(true);
+const isModalOpen = ref(false);
 
-onMounted(async () => {
+const fetchProjects = async () => {
   isLoading.value = true;
   projects.value = await getProjectsForUser();
   isLoading.value = false;
-});
+};
+
+const handleProjectCreated = (newProject) => {
+  // Option 1: Optimistically update the UI
+  projects.value.push(newProject);
+  // Option 2: Re-fetch the entire list for consistency
+  // fetchProjects();
+  isModalOpen.value = false;
+};
+
+onMounted(fetchProjects);
 </script>
 
 <style scoped>
@@ -45,8 +67,30 @@ onMounted(async () => {
 }
 
 .dashboard-header {
-  text-align: center;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 40px;
+}
+
+.header-content {
+  text-align: left;
+}
+
+.btn-primary {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  background-color: #007bff;
+  color: white;
+  transition: background-color 0.2s;
+}
+
+.btn-primary:hover {
+  background-color: #0056b3;
 }
 
 .dashboard-header h1 {
