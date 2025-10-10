@@ -89,19 +89,23 @@ FOR DELETE USING (
   (SELECT is_project_member(project_id, auth.uid()) FROM tasks WHERE tasks.id = task_checklists.task_id)
 );
 
--- 5.5. Create UPDATE policy that checks roles for assigning users.
+-- 5.5. Create a corrected UPDATE policy that checks roles for assigning users.
+-- This is the corrected policy.
+DROP POLICY IF EXISTS "Allow update for members with role check for assignment" ON public.task_checklists;
 CREATE POLICY "Allow update for members with role check for assignment" ON public.task_checklists
 FOR UPDATE USING (
   (SELECT is_project_member(project_id, auth.uid()) FROM tasks WHERE tasks.id = task_checklists.task_id)
 ) WITH CHECK (
   (
-    -- Allow general updates if the assignee is not being changed.
-    OLD.assignee_id IS NOT DISTINCT FROM NEW.assignee_id
+    -- If the assignee is not being changed, any project member can update the item (e.g., check it off).
+    (SELECT t.assignee_id FROM task_checklists t WHERE t.id = id) IS NOT DISTINCT FROM assignee_id
   ) OR (
-    -- If assignee is being changed, user must have a manager-level role.
-    OLD.assignee_id IS DISTINCT FROM NEW.assignee_id AND
-    (SELECT get_my_project_role(tasks.project_id) FROM tasks WHERE tasks.id = task_checklists.task_id)
-      IN ('Owner', 'Admin', 'Project Manager', 'Team Lead')
+    -- If the assignee is being changed, the user must have a manager-level role.
+    (SELECT t.assignee_id FROM task_checklists t WHERE t.id = id) IS DISTINCT FROM assignee_id AND
+    (
+      (SELECT get_my_project_role(tasks.project_id) FROM tasks WHERE tasks.id = task_checklists.task_id)
+        IN ('Owner', 'Admin', 'Project Manager', 'Team Lead')
+    )
   )
 );
 
