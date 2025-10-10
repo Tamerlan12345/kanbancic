@@ -41,6 +41,12 @@ export async function getTasks(projectId) {
  */
 export async function getMyProjectRole(projectId) {
     if (!supabase) return { data: null, error: new Error('Supabase client not initialized') };
+    // Убедимся, что projectId не undefined
+    if (!projectId) {
+        const err = new Error("Project ID is required to fetch user role.");
+        console.error(err.message);
+        return { data: null, error: err };
+    }
     const { data, error } = await supabase.rpc('get_my_project_role', { p_project_id: projectId });
     if (error) {
         console.error('Error fetching user project role:', error);
@@ -200,7 +206,7 @@ export async function getChecklistForTask(taskId) {
     .from('task_checklists')
     .select(`
       *,
-      assignee:profiles ( full_name, avatar_url )
+      assignee:profiles!assignee_id ( full_name, avatar_url )
     `)
     .eq('task_id', taskId)
     .order('created_at');
@@ -417,7 +423,7 @@ export async function getProjectMembers(projectId) {
         .select(`
             user_id,
             role,
-            profile:profiles ( full_name, avatar_url, email )
+            profile:profiles ( full_name, avatar_url )
         `)
         .eq('project_id', projectId);
 

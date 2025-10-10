@@ -127,6 +127,13 @@ const canAssignChecklists = computed(() => {
 
 // --- Methods ---
 
+// Добавьте эту функцию, чтобы исправить ReferenceError
+async function fetchAiHistory() {
+  if (!props.taskId) return;
+  // Логика загрузки истории AI (сейчас просто заглушка)
+  console.log("Fetching AI history for task:", props.taskId);
+}
+
 function toggleAssigneeDropdown(itemId) {
   if (!canAssignChecklists.value) return;
   activeDropdown.value = activeDropdown.value === itemId ? null : itemId;
@@ -144,20 +151,19 @@ async function handleAssignChecklistItem(item, assigneeId) {
 async function fetchTaskAndRelatedData() {
   if (!props.taskId) return;
 
-  // Fetch task, members, and role in parallel for speed
-  const [task, members, roleResult] = await Promise.all([
-    getTaskById(props.taskId),
-    getProjectMembers(props.taskId.projectId), // Assuming projectId is available on task
-    getMyProjectRole(props.taskId.projectId)
-  ]);
-
+  const task = await getTaskById(props.taskId);
   taskData.value = task;
-  projectMembers.value = members;
-  userRole.value = roleResult.data;
 
+  if (taskData.value && taskData.value.project_id) {
+    const [members, roleResult] = await Promise.all([
+      getProjectMembers(taskData.value.project_id),
+      getMyProjectRole(taskData.value.project_id)
+    ]);
 
-  if (taskData.value) {
-    // Now fetch data that depends on the task itself
+    projectMembers.value = members;
+    userRole.value = roleResult.data;
+
+    // Теперь вызываем остальные функции
     await Promise.all([
       fetchChecklist(),
       fetchAiHistory()
