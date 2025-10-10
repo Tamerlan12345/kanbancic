@@ -198,7 +198,10 @@ export async function getChecklistForTask(taskId) {
   if (!supabase) return [];
   const { data, error } = await supabase
     .from('task_checklists')
-    .select('*')
+    .select(`
+      *,
+      assignee:profiles ( full_name, avatar_url )
+    `)
     .eq('task_id', taskId)
     .order('created_at');
   if (error) console.error('Error fetching checklist:', error);
@@ -325,7 +328,7 @@ export async function getWorkspaces() {
     if (!supabase) return [];
     const { data, error } = await supabase
         .from('workspaces')
-        .select('id, name');
+        .select('id, name, workspace_type');
 
     if (error) {
         console.error('Error fetching workspaces:', error);
@@ -387,10 +390,15 @@ export async function getProjectsForUser() {
       id,
       name,
       description,
-      workspace:workspaces!workspace_id ( name )
+      workspace:workspaces!inner ( name, workspace_type )
     `);
 
   if (error) {
+    // A specific check for the "relation does not exist" error, which can happen with null FKs
+    if (error.code === 'PGRST200' && error.message.includes('relation "workspaces" does not exist')) {
+       console.warn('Warning: A project might have a null workspace_id, causing the inner join to fail. These projects will be filtered out.');
+       return []; // Return empty array to prevent crashes
+    }
     console.error('Error fetching user projects:', error);
     return [];
   }

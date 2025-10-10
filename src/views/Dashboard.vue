@@ -15,14 +15,34 @@
       <p>Вы еще не являетесь участником ни одного проекта.</p>
       <p>Нажмите "Создать проект", чтобы начать работу.</p>
     </div>
-    <div v-else class="projects-grid">
-      <router-link v-for="project in projects" :key="project.id" :to="`/kanban?projectId=${project.id}`" class="project-card-link">
-        <div class="project-card">
-          <h2 class="project-title">{{ project.name }}</h2>
-          <p class="project-description">{{ project.description }}</p>
-          <span class="project-workspace">{{ project.workspace.name }}</span>
+    <div v-else>
+      <!-- Corporate Projects Section -->
+      <section class="workspace-section" v-if="corporateProjects.length > 0">
+        <h2 class="section-title">Корпоративные проекты</h2>
+        <div class="projects-grid">
+          <router-link v-for="project in corporateProjects" :key="project.id" :to="`/kanban?projectId=${project.id}`" class="project-card-link">
+            <div class="project-card">
+              <h3 class="project-title">{{ project.name }}</h3>
+              <p class="project-description">{{ project.description }}</p>
+              <span class="project-workspace">{{ project.workspace.name }}</span>
+            </div>
+          </router-link>
         </div>
-      </router-link>
+      </section>
+
+      <!-- Personal Projects Section -->
+      <section class="workspace-section" v-if="personalProjects.length > 0">
+        <h2 class="section-title">Личные проекты</h2>
+        <div class="projects-grid">
+          <router-link v-for="project in personalProjects" :key="project.id" :to="`/kanban?projectId=${project.id}`" class="project-card-link">
+            <div class="project-card">
+              <h3 class="project-title">{{ project.name }}</h3>
+              <p class="project-description">{{ project.description }}</p>
+              <!-- Workspace name is omitted for personal projects for a cleaner look -->
+            </div>
+          </router-link>
+        </div>
+      </section>
     </div>
 
     <CreateProjectModal
@@ -34,13 +54,21 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { getProjectsForUser } from '../services/supabaseService.js';
 import CreateProjectModal from '../components/CreateProjectModal.vue';
 
 const projects = ref([]);
 const isLoading = ref(true);
 const isModalOpen = ref(false);
+
+const corporateProjects = computed(() =>
+  projects.value.filter(p => p.workspace && p.workspace.workspace_type === 'Corporate')
+);
+
+const personalProjects = computed(() =>
+  projects.value.filter(p => p.workspace && p.workspace.workspace_type === 'Personal')
+);
 
 const fetchProjects = async () => {
   isLoading.value = true;
@@ -49,10 +77,9 @@ const fetchProjects = async () => {
 };
 
 const handleProjectCreated = (newProject) => {
-  // Option 1: Optimistically update the UI
+  // Optimistically add the new project. The backend should return the full object
+  // including the nested workspace data.
   projects.value.push(newProject);
-  // Option 2: Re-fetch the entire list for consistency
-  // fetchProjects();
   isModalOpen.value = false;
 };
 
@@ -77,6 +104,11 @@ onMounted(fetchProjects);
   text-align: left;
 }
 
+.dashboard-header h1 {
+  font-size: 2.5em;
+  color: #333;
+}
+
 .btn-primary {
   padding: 10px 20px;
   border: none;
@@ -93,9 +125,16 @@ onMounted(fetchProjects);
   background-color: #0056b3;
 }
 
-.dashboard-header h1 {
-  font-size: 2.5em;
-  color: #333;
+.workspace-section {
+  margin-bottom: 50px;
+}
+
+.section-title {
+  font-size: 1.8em;
+  color: #444;
+  border-bottom: 2px solid #eee;
+  padding-bottom: 10px;
+  margin-bottom: 20px;
 }
 
 .projects-grid {
