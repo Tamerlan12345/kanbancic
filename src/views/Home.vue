@@ -28,7 +28,7 @@
       </div>
     </div>
     <!-- Modal for creating tasks -->
-    <TaskModal v-if="isCreateModalOpen" @close="isCreateModalOpen = false" @save="handleCreateTask" />
+    <TaskModal v-if="isCreateModalOpen" :project-id="projectId" @close="isCreateModalOpen = false" @save="handleCreateTask" />
     <!-- Modal for viewing task details -->
     <TaskDetailModal
       v-if="isDetailModalOpen"
