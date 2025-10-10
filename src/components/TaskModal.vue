@@ -57,9 +57,13 @@
 import { ref, onMounted } from 'vue';
 import { getIssueTypes } from '../services/supabaseService.js';
 
+const props = defineProps({
+  projectId: {
+    type: String,
+    required: true,
+  },
+});
 const emit = defineEmits(['close', 'save']);
-const urlParams = new URLSearchParams(window.location.search);
-const projectId = urlParams.get('projectId');
 
 const task = ref({
   title: '',
@@ -72,8 +76,8 @@ const task = ref({
 const issueTypes = ref([]);
 
 onMounted(async () => {
-  if (projectId) {
-    issueTypes.value = await getIssueTypes(projectId);
+  if (props.projectId) {
+    issueTypes.value = await getIssueTypes(props.projectId);
     // Устанавливаем значение по умолчанию, только если типы задач существуют
     if (issueTypes.value.length > 0) {
       task.value.issue_type_id = issueTypes.value[0].id;

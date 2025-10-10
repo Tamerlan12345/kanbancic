@@ -2,11 +2,8 @@
 > quantum-pm-platform@1.0.0 dev
 > vite
 
-Port 5173 is in use, trying another one...
-Port 5174 is in use, trying another one...
-Port 5175 is in use, trying another one...
 
-  VITE v4.5.14  ready in 881 ms
+  VITE v4.5.14  ready in 1387 ms
 
-  ➜  Local:   http://localhost:5176/
+  ➜  Local:   http://localhost:5173/
   ➜  Network: use --host to expose
