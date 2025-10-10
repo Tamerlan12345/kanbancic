@@ -74,8 +74,13 @@ const issueTypes = ref([]);
 onMounted(async () => {
   if (projectId) {
     issueTypes.value = await getIssueTypes(projectId);
+    // Устанавливаем значение по умолчанию, только если типы задач существуют
     if (issueTypes.value.length > 0) {
-      task.value.issue_type_id = issueTypes.value[0].id; // Default to the first type
+      task.value.issue_type_id = issueTypes.value[0].id;
+    } else {
+      // Если типов задач нет, можно вывести предупреждение или обработать эту ситуацию
+      console.warn("В этом проекте не найдено ни одного типа задач.");
+      // Можно даже запретить создание задачи, пока типы не будут созданы
     }
   }
 });
