@@ -387,7 +387,7 @@ export async function getProjectsForUser() {
       id,
       name,
       description,
-      workspace:workspaces ( name )
+      workspace:workspaces!workspace_id ( name )
     `);
 
   if (error) {
