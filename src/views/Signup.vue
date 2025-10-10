@@ -43,13 +43,22 @@ const handleSignup = async () => {
   successMessage.value = '';
   try {
     await signUp(email.value, password.value);
-    successMessage.value = 'Success! Please check your email to confirm your account.';
+    // Set success message in Russian for consistency with the UI.
+    successMessage.value = 'Регистрация прошла успешно! Пожалуйста, проверьте свою почту для подтверждения, а затем войдите.';
     logInfo('User signup successful, pending email confirmation', { email: email.value });
-    // We don't redirect immediately, as the user needs to confirm their email.
-    // A better user experience might be to show a "Check your email" page.
-    // For now, we'll just show a message.
+
+    // Redirect to the login page after a delay so the user can read the message.
+    setTimeout(() => {
+      router.push('/login');
+    }, 4000); // 4-second delay
+
   } catch (error) {
-    errorMessage.value = error.message;
+    // Provide a user-friendly error message in Russian.
+    if (error.message && error.message.includes('User already registered')) {
+      errorMessage.value = 'Пользователь с таким email уже зарегистрирован.';
+    } else {
+      errorMessage.value = `Произошла ошибка: ${error.message || 'Неизвестная ошибка'}`;
+    }
     logError('Signup failed', error);
   } finally {
     isLoading.value = false;
