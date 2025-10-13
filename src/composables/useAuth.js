@@ -5,35 +5,35 @@ import { useLogger } from './useLogger';
 const { error: logError } = useLogger();
 
 // These refs are module-level state, making them singletons.
-// Any component that imports and uses `useAuth` will share this state.
 const user = ref(null);
 const session = ref(null);
+const isAuthInitialized = ref(false); // New state to track initialization
 
 /**
  * Initializes the authentication state. It fetches the current session
  * and sets up a listener for any subsequent auth state changes.
- * This function is called automatically when this module is first imported.
  */
-const initializeAuth = async () => {
+export const initializeAuth = async () => {
+  // Prevent re-initialization
+  if (isAuthInitialized.value) return;
+
   // IMPORTANT FIX: Check if the Supabase client exists before using it.
   if (!supabase) {
     console.error("Critical Error: Supabase client is not initialized. Check your .env.local file. Auth functions will be disabled.");
-    return; // Stop execution to prevent a crash.
+    isAuthInitialized.value = true; // Mark as initialized to not block the app
+    return;
   }
 
   try {
-    // Fetch the initial session from Supabase.
     const { data, error } = await supabase.auth.getSession();
     if (error) {
       logError('Error getting session', error);
       return;
     }
 
-    // Set the initial state.
     session.value = data.session;
     user.value = data.session?.user || null;
 
-    // Listen for real-time authentication events (e.g., SIGN_IN, SIGN_OUT).
     supabase.auth.onAuthStateChange((_event, newSession) => {
       session.value = newSession;
       user.value = newSession?.user || null;
@@ -41,11 +41,10 @@ const initializeAuth = async () => {
 
   } catch (error) {
     logError('Error initializing auth', error);
+  } finally {
+    isAuthInitialized.value = true; // Signal that auth check is complete
   }
 };
-
-// Run the initialization logic once.
-initializeAuth();
 
 /**
  * The main composable function for authentication.

@@ -1,13 +1,22 @@
 import { createApp } from 'vue';
 import App from './App.vue';
-
-// By importing the service, we ensure the Supabase client is initialized.
-// The logic inside supabaseService.js runs once when the module is imported.
-import './services/supabaseService.js';
-
 import router from './router';
+import { initializeAuth } from './composables/useAuth';
+import './services/supabaseService.js'; // Ensures Supabase is initialized first
 
-// Create and mount the root Vue app.
-const app = createApp(App);
-app.use(router);
-app.mount('#app');
+// --- App Initialization ---
+// We must ensure that the authentication state is loaded *before* the
+// app is mounted. This prevents the "flicker" where the app briefly
+// thinks the user is logged out while the session is being fetched.
+
+async function startup() {
+  // 1. Initialize authentication. This will check for an existing session.
+  await initializeAuth();
+
+  // 2. Create and mount the Vue app.
+  const app = createApp(App);
+  app.use(router);
+  app.mount('#app');
+}
+
+startup();
